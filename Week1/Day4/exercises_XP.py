@@ -27,3 +27,14 @@ friend_fav_numbers = {1, 2, 3, 4, 8}
 our_fav_numbers = my_fav_numbers.union(friend_fav_numbers)
 
 print(our_fav_numbers)
+
+tuple1 = (1, 2, 3, 4, 5)
+
+# tuple1.append(6)  # This will raise an AttributeError since tuples are immutable
+
+# print(tuple1)
+
+tuple1 = (
+    tuple1 + (6, 7, 8)
+)  # This creates a new tuple by concatenating the existing tuple with a new one containing the number 6
+print(tuple1)

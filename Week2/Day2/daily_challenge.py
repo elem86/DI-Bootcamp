@@ -87,33 +87,39 @@ MATRIX_STR = """
 Tsi
 h%x
 i ?
-sM# 
-$a 
+sM#
+$a
 #t%"""
 
 
+rows = MATRIX_STR.strip().split("\n")
+column_count = max(len(row) for row in rows)
+
 matrix = []
-for row in MATRIX_STR.strip().split("\n"):
-    matrix.append(list(row))
+for row in rows:
+    matrix.append(list(row.ljust(column_count)))
 
-message = ""
+encoded_chars = []
 
-for col in range(len(matrix[0])):
+for col in range(column_count):
     for row in range(len(matrix)):
-        char = matrix[row][col]
+        encoded_chars.append(matrix[row][col])
 
-        if char.isalpha():
-            message += char
+encoded_message = "".join(encoded_chars)
 
-decoded_message = ""
+decoded_chars = []
+inside_symbol_group = False
 
-for col in range(len(matrix[0])):
-    for row in range(len(matrix)):
-        char = matrix[row][col]
+for char in encoded_message:
+    if char.isalpha():
+        if inside_symbol_group and decoded_chars:
+            decoded_chars.append(" ")
 
-        if char.isalpha():
-            decoded_message += char
-        else:
-            decoded_message += " "
+        decoded_chars.append(char)
+        inside_symbol_group = False
+    else:
+        inside_symbol_group = True
+
+decoded_message = "".join(decoded_chars)
 
 print(decoded_message)

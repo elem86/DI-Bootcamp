@@ -62,6 +62,7 @@
 
 
 def create_board():
+    # Create and return an empty 3x3 Tic Tac Toe board.
     return [
         [" ", " ", " "],
         [" ", " ", " "],
@@ -70,6 +71,7 @@ def create_board():
 
 
 def display_board(board):
+    # Print the board in a readable grid format.
     print("-------------")
     for row in board:
         print(f"| {row[0]} | {row[1]} | {row[2]} |")
@@ -77,6 +79,8 @@ def display_board(board):
 
 
 def player_input(board, player):
+    # Ask the current player to choose a row and column.
+    # Keep asking until valid input is provided.
     while True:
         try:
             row = int(input(f"Player {player}, enter row (1-3): "))
@@ -101,10 +105,13 @@ def player_input(board, player):
 
 
 def check_win(board, player):
+    # Check every possible winning combination.
+    # Check each row.
     for row in board:
         if row[0] == player and row[1] == player and row[2] == player:
             return True
 
+    # Check each column.
     for col in range(3):
         if (
             board[0][col] == player
@@ -113,6 +120,7 @@ def check_win(board, player):
         ):
             return True
 
+    # Check the two diagonals.
     if board[0][0] == player and board[1][1] == player and board[2][2] == player:
         return True
 
@@ -123,6 +131,7 @@ def check_win(board, player):
 
 
 def check_tie(board):
+    # Return True only if all cells are filled and no winner exists.
     for row in board:
         for cell in row:
             if cell == " ":
@@ -132,13 +141,14 @@ def check_tie(board):
 
 
 def switch_player(current_player):
+    # Alternate between the two players X and O.
     if current_player == "X":
         return "O"
-
     return "X"
 
 
 def play():
+    # Main game loop.
     board = create_board()
     current_player = "X"
 

@@ -91,35 +91,50 @@ sM#
 $a
 #t%"""
 
-
+# Step 1: Convert the multiline string into a list of rows.
+# We strip leading/trailing whitespace and split at newlines.
 rows = MATRIX_STR.strip().split("\n")
+
+# Determine how many columns the grid should have: it's the longest row length.
 column_count = max(len(row) for row in rows)
 
+# Step 2: Build a rectangular 2D matrix (list of lists).
+# Shorter rows are padded with spaces using ljust so every row has column_count chars.
 matrix = []
 for row in rows:
     matrix.append(list(row.ljust(column_count)))
 
+# Step 3: Read characters column-by-column (top to bottom, left to right).
+# Append each visited character into encoded_chars in that reading order.
 encoded_chars = []
-
 for col in range(column_count):
     for row in range(len(matrix)):
         encoded_chars.append(matrix[row][col])
 
+# Join into a single string to simplify further processing.
 encoded_message = "".join(encoded_chars)
 
+# Step 4: Process the encoded_message to build the final decoded message.
+# We want to keep alphabetic characters and replace groups of non-alpha symbols
+# that occur between letters with a single space.
 decoded_chars = []
 inside_symbol_group = False
 
 for char in encoded_message:
     if char.isalpha():
+        # If we just passed a group of non-letter symbols and we've already
+        # collected at least one decoded character, insert a space before
+        # adding the next letter.
         if inside_symbol_group and decoded_chars:
             decoded_chars.append(" ")
 
         decoded_chars.append(char)
         inside_symbol_group = False
     else:
+        # Mark that we are inside a run of non-letter symbols.
         inside_symbol_group = True
 
+# Step 5: Join the decoded characters and print the final secret message.
 decoded_message = "".join(decoded_chars)
 
 print(decoded_message)

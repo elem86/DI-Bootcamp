@@ -28,4 +28,4 @@
 
 from func import sum_numbers
 
-sum_numbers(1, 2)
+print(sum_numbers(1, 2))

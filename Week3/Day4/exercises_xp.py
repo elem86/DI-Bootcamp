@@ -242,7 +242,9 @@ print(current_date)
 
 date_time = datetime.now()
 
-jan_1 = datetime(2027, 1, 1)
+next_year = datetime.now().year + 1
+
+jan_1 = datetime(next_year, 1, 1)
 
 difference_time = jan_1 - date_time
 
@@ -312,18 +314,19 @@ birth_function("1986-03-11")
 from faker import Faker
 
 fake = Faker()
-users = []
 
 
 def add_users(num_users):
+    new_users = []
     for _ in range(num_users):
         user = {
             "name": fake.name(),
             "address": fake.address(),
             "language_code": fake.language_code(),
         }
-        users.append(user)
+        new_users.append(user)
+    return new_users
 
 
-add_users(5)
+users = add_users(5)
 print(users)

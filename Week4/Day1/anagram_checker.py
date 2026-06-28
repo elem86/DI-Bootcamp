@@ -13,7 +13,7 @@ class AnagramChecker:
     def __init__(self, wordlist_path: Optional[str] = None, encoding: str = "utf-8"):
         if wordlist_path is None:
             base = os.path.dirname(__file__)
-            wordlist_path = os.path.join(base, "Week4/Day1/sowpods.txt")
+            wordlist_path = os.path.join(base, "sowpods.txt")
 
         self.wordlist_path = wordlist_path
 

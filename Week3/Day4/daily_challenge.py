@@ -86,3 +86,4 @@ if __name__ == "__main__":
         circle.draw(start_x, 0)
         start_x += circle.diameter + 20
     screen.exitonclick()
+

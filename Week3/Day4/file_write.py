@@ -1,0 +1,20 @@
+words = [
+    "the", "quick", "brown", "fox", "jumps", "over", "lazy", "dog",
+    "python", "code", "data", "class", "object", "method", "function",
+    "variable", "loop", "list", "dict", "string", "number", "boolean",
+    "file", "read", "write", "open", "close", "with", "import", "module",
+    "error", "try", "except", "return", "print", "input", "if", "else",
+    "for", "while", "break", "continue", "true", "false", "none",
+    "apple", "banana", "cherry", "grape", "mango", "orange", "peach",
+    "river", "mountain", "ocean", "forest", "desert", "valley", "sky",
+    "happy", "brave", "calm", "dark", "eager", "fierce", "gentle",
+    "bright", "silent", "swift", "ancient", "modern", "simple", "clever"
+]
+
+'\n'
+
+with open("words.txt", "w") as f:
+    for word in words:
+        f.write(word + "\n")
+
+print(f"Wrote {len(words)} words to words.txt")

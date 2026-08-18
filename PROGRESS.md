@@ -4,6 +4,19 @@ This is the running log kept by the Student Progress Coach (see `2students/CLAUD
 
 ---
 
+## 2026-08-18 (follow-up)
+
+**Since earlier today:** 1 exercise commit, 1 file — dictionaries, error handling
+
+**What I saw:** Real exercise work arrived. Your `Week1/Day1/exercises_XP.py` shows two solid fundamentals: `word_lengths()` uses a dict comprehension cleanly, mapping each word to its length in one concise expression instead of a loop. `safe_divide()` correctly wraps the division in try/except, catching `ZeroDivisionError` and returning `None` as a sensible fallback—defensive coding that handles the edge case without crashing.
+
+**Recommendations:**
+- Add a few more test cases to the `if __name__ == "__main__"` block—edge cases like `word_lengths([])` (empty list) and `safe_divide(10, 0.0001)` (near-zero divisor). Testing the boundary strengthens confidence in the implementations.
+
+**Streak:** 1 day — first exercise commit
+
+---
+
 ## 2026-08-18
 
 **Since yesterday:** No exercise commits — setup only

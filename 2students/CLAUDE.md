@@ -80,6 +80,34 @@ Every daily entry in `PROGRESS.md` must follow this template exactly, so entries
 **Streak:** 5 days in a row
 ```
 
+## Weekly Summary (Saturdays)
+
+In addition to the daily review, run a weekly rollup every Saturday evening, covering the week from the preceding Sunday through Saturday.
+
+1. Read `.progress/stats.jsonl` and select every line whose `date` falls within this week (Sunday through Saturday, inclusive).
+2. Also check `git log` for that same window directly — don't rely on `stats.jsonl` alone, since days with "no commits" don't get a line there (see Edge Cases).
+3. Aggregate: total commits, total files changed, total lines added/removed, the distinct set of `topics` touched, and how many of the 7 days had at least one commit.
+4. Write a new entry at the **top** of `PROGRESS.md` (above that week's daily entries), following the template below.
+5. Do **not** append to `stats.jsonl` for the weekly summary itself — `stats.jsonl` stays one line per *daily* run only.
+6. Commit `PROGRESS.md` together with any `.progress/state.json` changes from the same run, prefixed `progress-coach:` (e.g. `progress-coach: weekly summary 2026-08-22`).
+
+### Weekly Output Format
+
+```markdown
+## Week of 2026-08-16 — Weekly Summary
+
+**This week:** 14 commits across 4 of 7 days, 9 files — dictionaries, error handling, recursion
+
+**Highlights:** [2-4 sentences on the week's overall arc — what got stronger, what's a recurring pattern]
+
+**Recommendations:**
+- [specific, tied to the week's actual diffs]
+
+**Streak:** 5 days in a row
+```
+
+If a week had zero commits entirely, still write a short entry noting the gap plainly rather than skipping the week.
+
 ## Guardrails
 
 - Never rewrite or reorder past `PROGRESS.md` entries. Only ever prepend a new one.

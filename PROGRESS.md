@@ -4,6 +4,21 @@ This is the running log kept by the Student Progress Coach (see `2students/CLAUD
 
 ---
 
+## 2026-08-20
+
+*(Delayed/catch-up review — the last run was 2026-08-18; this covers everything committed since then.)*
+
+**Since last review:** 1 commit, 4 files — no exercise topics (repo/spec maintenance)
+
+**What I saw:** The one commit since last time (`5fc2295`, "dailysummary") didn't touch exercise code — it edited `2students/CLAUDE.md` itself (adding the `current_position` tracking rule and the "don't guess a misnamed folder into current_position" guardrail), added a `current_position` field to `.progress/state.json` by hand, and added a `.gitignore` for `.coach-scripts/`. The same commit also created `Wek8/exercise.ipynb`, which is empty (0 bytes) and, fittingly, is exactly the kind of misnamed folder the new CLAUDE.md rule just warned about: it's missing the `Week` prefix (should be `Week8` or similar) and has no `DayM` subfolder, so it doesn't count as a real `WeekN/DayM` exercise. Per that rule, `current_position` stays at `Week6/Day5`, the last folder that matched the pattern. There are also two untracked project directories at the repo root (`DI_198/`, `hack1_movie_rec/`) that look like separate, unrelated projects rather than course exercises, so they're outside this review's scope and haven't been touched.
+
+**Recommendations:**
+- Rename `Wek8/` to a proper `WeekN/DayM` path (e.g. `Week8/Day1/`) and add real content to `exercise.ipynb` — right now it's an empty placeholder that won't register as progress.
+
+**Streak:** 2 days in a row (Aug 18–19)
+
+---
+
 ## 2026-08-18 (follow-up)
 
 **Since earlier today:** 1 exercise commit, 1 file — dictionaries, error handling

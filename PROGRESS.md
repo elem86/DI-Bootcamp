@@ -4,6 +4,21 @@ This is the running log kept by the Student Progress Coach (see `2students/CLAUD
 
 ---
 
+## 2026-08-22
+
+*(Delayed/catch-up review — the last daily run was 2026-08-20; this covers everything committed since then.)*
+
+**Since last review:** 0 commits, 0 files — no exercise topics
+
+**What I saw:** No new exercise commits landed between `5fc2295` (Aug 19) and now. The only git activity in that window is the coach's own bookkeeping: the Aug 20 daily review commit (`18fa277`) and, earlier today, the weekly summary commit (`0dc3861`) — neither touches exercise code. The two untracked project folders at the repo root, `DI_198/` and `hack1_movie_rec/`, are still sitting there uncommitted; `DI_198/` is its own nested git repo (with its own `week_1`…`week_8` structure) and `hack1_movie_rec/` looks like a separate hackathon project. Both remain outside this course repo's `WeekN/DayM` structure, so they're noted but not reviewed as exercise work. `current_position` stays at `Week6/Day5`.
+
+**Recommendations:**
+- Nothing new to review, so the standing recommendation holds: get back to committing exercise work under a `WeekN/DayM` folder — it's been three days (Aug 20–22) since the last one.
+
+**Streak:** 0 days (last exercise commit was Aug 19; nothing since)
+
+---
+
 ## Week of 2026-08-16 — Weekly Summary
 
 **This week:** 5 commits across 2 of 7 days, 8 files — dictionaries, error handling

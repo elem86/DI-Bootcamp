@@ -4,6 +4,20 @@ This is the running log kept by the Student Progress Coach (see `2students/CLAUD
 
 ---
 
+## Week of 2026-08-16 — Weekly Summary
+
+**This week:** 5 commits across 2 of 7 days, 8 files — dictionaries, error handling
+
+**Highlights:** The week's one substantive exercise commit was `ebda6d9` ("testing the daily review"), which added `Week1/Day1/exercises_XP.py`: a dict comprehension in `word_lengths()` and a `safe_divide()` wrapped in try/except that returns `None` on `ZeroDivisionError` instead of crashing — clean, idiomatic use of both patterns. Everything else committed this week (Aug 18–19) was repo/coach scaffolding: reorganizing `2students/CLAUDE.md`, moving `.progress/` into place, and creating `Wek8/exercise.ipynb`, which is still an empty 0-byte placeholder that doesn't match the `WeekN/DayM` naming pattern needed to register as progress. No exercise work has been committed since Aug 19 — Aug 20 through 22 are quiet.
+
+**Recommendations:**
+- Rename `Wek8/` to a proper `WeekN/DayM` path (e.g. `Week8/Day1/`) and put real content in `exercise.ipynb` — it's been sitting empty all week.
+- Get back to committing exercise work — the streak broke after Aug 19 and it's now been three days (Aug 20–22) without a new exercise commit.
+
+**Streak:** 0 days (last exercise commit was Aug 19; nothing since)
+
+---
+
 ## 2026-08-20
 
 *(Delayed/catch-up review — the last run was 2026-08-18; this covers everything committed since then.)*

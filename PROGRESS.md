@@ -4,6 +4,20 @@ This is the running log kept by the Student Progress Coach (see `2students/CLAUD
 
 ---
 
+## 2026-08-23
+
+**Since last review:** 0 commits, 0 files — no exercise topics
+
+**What I saw:** Still nothing new on the exercise side. The only commit between the last two reviews (`0dc3861` → `HEAD`) is the coach's own Aug 22 daily-review commit (`86378da`), which only touched `PROGRESS.md` and `.progress/state.json`. The last actual exercise commit remains `5fc2295` from Aug 19 — that's now four days quiet (Aug 20–23). `DI_198/` (a full `week_1`…`week_8` plus `Hackathon/LaunchPad_AI` tree) and `hack1_movie_rec/` (three notebooks — `01_data_exploration.ipynb`, `02_recommendation_system.ipynb`, `03_final_demo.ipynb` — plus a `recommender.py`) are both still sitting fully uncommitted at the repo root, unchanged in scope from the last two reviews. `current_position` stays at `Week6/Day5`.
+
+**Recommendations:**
+- Four days without an exercise commit now — even a small commit under wherever the course has actually moved to would restart the streak and give this review something concrete to look at.
+- If `hack1_movie_rec/` is at a stopping point, committing it (even as a WIP commit) would stop it being invisible to this tracker — right now the three notebooks and `recommender.py` exist on disk but nothing about them is in git history.
+
+**Streak:** 0 days (last exercise commit was Aug 19; nothing since)
+
+---
+
 ## 2026-08-22
 
 *(Delayed/catch-up review — the last daily run was 2026-08-20; this covers everything committed since then.)*

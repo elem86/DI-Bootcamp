@@ -4,6 +4,20 @@ This is the running log kept by the Student Progress Coach (see `2students/CLAUD
 
 ---
 
+## 2026-08-24
+
+**Since last review:** 0 commits, 0 files — no exercise topics
+
+**What I saw:** Another quiet day on the exercise side. `git log 86378da..HEAD` shows only the coach's own Aug 23 daily-review commit (`a2a0d54`) between the last review and now — it touched just `PROGRESS.md` and `.progress/state.json`, nothing under a `WeekN/DayM` folder. The last real exercise commit is still `5fc2295` from Aug 19, so that's now five days quiet (Aug 20–24). `DI_198/` and `hack1_movie_rec/` remain exactly as they were the last two reviews: both still fully uncommitted at the repo root, no new files or changes inside either. `current_position` stays at `Week6/Day5`.
+
+**Recommendations:**
+- Five days without an exercise commit — even a small one under the current `WeekN/DayM` position (or wherever the course has moved to) would restart the streak and give the next review something real to look at.
+- `hack1_movie_rec/`'s three notebooks and `recommender.py` are still invisible to git — a WIP commit would at least put a checkpoint in history instead of leaving it all only on disk.
+
+**Streak:** 0 days (last exercise commit was Aug 19; nothing since)
+
+---
+
 ## 2026-08-23
 
 **Since last review:** 0 commits, 0 files — no exercise topics

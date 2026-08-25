@@ -4,6 +4,20 @@ This is the running log kept by the Student Progress Coach (see `2students/CLAUD
 
 ---
 
+## 2026-08-25
+
+**Since last review:** 0 commits, 0 files — no exercise topics
+
+**What I saw:** Still no new commits under a `WeekN/DayM` folder — `git log a2a0d54..HEAD` shows only the coach's own Aug 24 daily-review commit (`0178e0a`), which touched just `PROGRESS.md` and `.progress/state.json`. The last real exercise commit stays `5fc2295` from Aug 19, so that's six days quiet now (Aug 20–25). **Correction to the last three reviews:** `DI_198/` and `hack1_movie_rec/` are not "uncommitted work sitting on disk" — both are their own separate git repositories (each has its own `.git/`), so the outer repo's `git status` only ever showed the folder name, never their contents. `hack1_movie_rec/.git/config` points at `origin = https://github.com/elem86/hack1_movie_rec.git`, and its `main` branch has a real history: "test", "downloaded movie database", "finished EDA", a merge of a `recommendation-engine` branch, a merge of a `final-demo` branch, "removed absolute paths", and "added gitignore" as the last commit — all dated Aug 13–16, before this coach's tracking even started on Aug 18. It's a finished, pushed hackathon project, not neglected work. `DI_198/` is different: it's a single-commit clone of `https://github.com/stolovitskyinc-maker/DI_198.git` from around July 10, with no local commits since — reference/backup material, not in-progress work. `current_position` stays at `Week6/Day5`.
+
+**Recommendations:**
+- Six days without a commit under the tracked `WeekN/DayM` structure — even a small one at `Week6/Day5` or wherever the course has actually moved to would restart the streak.
+- Now that `hack1_movie_rec` is confirmed finished and pushed, it's worth deciding whether it belongs inside this tracked repo at all (as a submodule or a note) so future reviews don't re-flag it as missing — right now it'll keep showing up as an untracked folder forever since it's a separate repo.
+
+**Streak:** 0 days (last exercise commit was Aug 19; nothing since)
+
+---
+
 ## 2026-08-24
 
 **Since last review:** 0 commits, 0 files — no exercise topics

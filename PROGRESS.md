@@ -4,6 +4,20 @@ This is the running log kept by the Student Progress Coach (see `2students/CLAUD
 
 ---
 
+## 2026-08-27
+
+**Since yesterday:** 0 commits, 0 files — no exercise topics
+
+**What I saw:** Still quiet. `git log e7f44f6..HEAD` shows only the coach's own Aug 26 daily-review commit (`0006530`), touching just `PROGRESS.md` and `.progress/state.json` — nothing under a `WeekN/DayM` folder. The last real exercise commit remains `5fc2295` from Aug 19, so it's now eight days quiet (Aug 20–27). `git status` shows no uncommitted changes in this repo; `DI_198/` and `hack1_movie_rec/` are still the two separate git repositories documented in the Aug 25 entry (a finished, already-pushed hackathon project and a reference clone, respectively), not pending work. `current_position` stays at `Week6/Day5`.
+
+**Recommendations:**
+- Eight days without a commit under the tracked `WeekN/DayM` structure — even a small one at `Week6/Day5` or wherever the course has actually moved to would restart the streak and give the next review real material.
+- The open question from the Aug 25 entry — whether `hack1_movie_rec` should be added as a submodule or just noted somewhere — is still unresolved; deciding it once would stop it needing re-explanation in every review.
+
+**Streak:** 0 days (last exercise commit was Aug 19; nothing since)
+
+---
+
 ## 2026-08-26
 
 **Since last review:** 0 commits, 0 files — no exercise topics

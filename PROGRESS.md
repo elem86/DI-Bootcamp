@@ -4,6 +4,22 @@ This is the running log kept by the Student Progress Coach (see `2students/CLAUD
 
 ---
 
+## 2026-08-31
+
+*(Delayed/catch-up review — the last daily run was 2026-08-27; this covers everything committed since then.)*
+
+**Since last review:** 0 commits, 0 files — no exercise topics
+
+**What I saw:** Still nothing new under a `WeekN/DayM` folder. `git log 0006530..HEAD` shows only the coach's own Aug 27 daily-review commit (`bc602fd`), which touched just `PROGRESS.md` and `.progress/state.json` — no exercise code. The last real exercise commit remains `5fc2295` from Aug 19, so that's now twelve days quiet (Aug 20–31). `git status` shows no uncommitted changes in this repo; `DI_198/` and `hack1_movie_rec/` are unchanged from prior reviews — both remain separate git repositories (a finished, already-pushed hackathon project and a reference clone, respectively), not pending work. `current_position` stays at `Week6/Day5`.
+
+**Recommendations:**
+- Twelve days without a commit under the tracked `WeekN/DayM` structure — even a small one at `Week6/Day5` or wherever the course has actually moved to would restart the streak and give the next review real material.
+- The `hack1_movie_rec` submodule/note question, open since Aug 25, is still unresolved after a week — worth deciding once so it stops needing re-explanation in every review.
+
+**Streak:** 0 days (last exercise commit was Aug 19; nothing since)
+
+---
+
 ## 2026-08-27
 
 **Since yesterday:** 0 commits, 0 files — no exercise topics

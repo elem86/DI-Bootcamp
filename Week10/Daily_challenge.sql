@@ -26,7 +26,7 @@ VALUES
     ('Morgan', 'Freeman', '1937-06-01', 1),
     ('Kate', 'Winslet', '1975-10-05', 1);
 
-SELECT COUNT(*)	first_name
+SELECT COUNT(*)	AS number_of_actors
 FROM actors;
 
 INSERT INTO actors (first_name, last_name, age, number_oscars)

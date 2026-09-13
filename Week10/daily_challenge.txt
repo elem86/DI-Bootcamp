@@ -1,0 +1,28 @@
+Q1. What will be the OUTPUT of the following statement?
+
+    SELECT COUNT(*) 
+    FROM FirstTab AS ft WHERE ft.id NOT IN ( SELECT id FROM SecondTab WHERE id IS NULL )
+
+ANSWER: 0 rows. The subquery returns NULL, and NOT IN (NULL) evaluates to UNKNOWN for every row.
+
+ Q2. What will be the OUTPUT of the following statement?
+
+    SELECT COUNT(*) 
+    FROM FirstTab AS ft WHERE ft.id NOT IN ( SELECT id FROM SecondTab WHERE id = 5 )
+
+ANSWER: 2 rows. IDs 6 and 7 are not equal to 5; the NULL ID is excluded.
+
+
+Q3. What will be the OUTPUT of the following statement?
+
+    SELECT COUNT(*) 
+    FROM FirstTab AS ft WHERE ft.id NOT IN ( SELECT id FROM SecondTab )
+
+ANSWER: 0 rows. The subquery returns 5 and NULL, and the NULL causes the NOT IN condition to evaluate to UNKNOWN.
+
+Q4. What will be the OUTPUT of the following statement?
+
+    SELECT COUNT(*) 
+    FROM FirstTab AS ft WHERE ft.id NOT IN ( SELECT id FROM SecondTab WHERE id IS NOT NULL )
+
+ANSWER: 2 rows. The subquery returns only 5, so IDs 6 and 7 are counted.

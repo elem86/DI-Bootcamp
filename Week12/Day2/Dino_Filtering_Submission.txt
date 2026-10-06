@@ -1,0 +1,41 @@
+Dinosaur Filtering Exercise - Submission Notes
+
+Exercise source:
+qf-3810.zip
+
+Completed workbook:
+Dino File Filtered.xlsx
+
+Original workbook:
+Dino File.xlsx
+
+Completed tasks:
+
+Part 1
+- Period: Cretaceous
+- Diet: not carnivore
+- Height: less than 2 metres
+- Mass: between 10 and 100 kg
+- Expected result: 4 dinosaurs
+
+Part 2
+- Period: Jurassic
+- Length: Top 50%
+- Expected result: 4 dinosaurs
+
+Part 3
+- Hip Type: bird
+- Meaning of Name: contains the word "tooth"
+- Expected result: 2 dinosaurs
+
+GitHub location:
+Week12/Day2/Dino File Filtered.xlsx
+
+Recommended repository/folder URL for submission:
+https://github.com/elem86/DI-Bootcamp/tree/main/Week12/Day2
+
+Direct workbook URL:
+https://github.com/elem86/DI-Bootcamp/blob/main/Week12/Day2/Dino%20File%20Filtered.xlsx
+
+Note:
+The completed deliverable is Dino File Filtered.xlsx. Dino File.xlsx is the original source workbook and does not need to be submitted as the completed answer.

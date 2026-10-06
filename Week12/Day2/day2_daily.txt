@@ -1,0 +1,10 @@
+# Week 12 Day 2 Excel Exercises
+
+Exercise 1 - IF formula:
+Formula 07.xlsx
+
+Exercise 2 - Holiday Pivot Table:
+Holiday Pivot.xlsx
+
+Exercise 3 - Oscar Pivot Chart and Genre Slicer:
+Comedy chart.xlsx

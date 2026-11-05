@@ -33,6 +33,10 @@ outputs/models/*
 outputs/predictions/*
 !outputs/predictions/.gitkeep
 
+# Walk-forward backtest results (python -m src.backtest)
+outputs/backtest/*
+!outputs/backtest/.gitkeep
+
 # Generated Excel workbooks (python -m src.excel_report)
 outputs/excel/*
 !outputs/excel/.gitkeep

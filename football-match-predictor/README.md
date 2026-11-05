@@ -18,6 +18,7 @@ football-match-predictor/
 │   ├── figures/        # Charts produced by notebooks/scripts
 │   ├── models/         # Saved trained models and metrics (not tracked)
 │   ├── predictions/    # Saved model predictions (not tracked)
+│   ├── backtest/       # Walk-forward backtest results (not tracked)
 │   └── excel/          # Generated Excel workbook (not tracked)
 ├── requirements.txt
 └── README.md
@@ -265,6 +266,48 @@ How to read it:
 
 `tests/test_excel_report.py` checks the sheet names, that every fixture and probability matches the saved predictions, that the metrics match an independent evaluation, that the odds belong to the right fixtures, and that the formulas point at the right cells.
 
+## Walk-forward backtesting
+
+One validation season is a small sample, so `src/backtest.py` evaluates the same models on every season from 2018-19 to 2024-25, each predicted only from the seasons before it:
+
+```powershell
+python -m src.backtest                                   # all models, about 6 minutes
+python -m src.backtest --models logistic_regression      # selected models
+```
+
+Results are saved to `outputs/backtest/` (git-ignored). [notebooks/06_walk_forward_backtesting.ipynb](notebooks/06_walk_forward_backtesting.ipynb) runs the backtest and presents it.
+
+**One fold per evaluation season S:**
+
+1. Hide every season after S.
+2. Tune the feature set and hyperparameters by fitting on seasons up to S-2 and scoring on S-1.
+3. Refit the winner on all seasons up to S-1.
+4. Predict S.
+
+Season S's results are used only for scoring. The training window expands with every fold.
+
+**Why each fold tunes its own settings:** the commit-7 settings were chosen on 2025-26, so reusing them for earlier seasons would let a later season configure an earlier forecast. Each fold instead selects from the same predefined grids using only past seasons. The grid *ranges* themselves were set in commit 7, which is documented as a small remaining caveat.
+
+**Untouched:** the 2026-27 holdout (the code refuses it) and the 2025-26 validation results.
+
+All forecasts are scored on identical fixtures with complete Bet365 odds: 2,657 of 2,660 matches (99.9%; 2020-21 and 2021-22 each have 1–2 matches without odds).
+
+| Forecast | Pooled log loss | Pooled Brier | Pooled accuracy | Best / worst season log loss | Seasons ranked 1st |
+|---|---|---|---|---|---|
+| Logistic Regression | 0.983 | 0.585 | 53.5% | 0.949 / 1.005 | 1 |
+| Random Forest | 0.983 | 0.585 | 53.4% | 0.947 / 0.999 | 0 |
+| XGBoost | 0.981 | 0.584 | 54.0% | 0.940 / 0.997 | 0 |
+| Bookmaker (Bet365) | **0.960** | **0.570** | **54.4%** | 0.934 / 0.983 | 6 |
+| Baseline | 1.092 | 0.662 | 41.2% | 1.078 / 1.106 | 0 |
+
+In 2022-23, the one season where the bookmaker isn't first, Logistic Regression ranks first. Its gap to the bookmaker there is −0.001, within the noise.
+
+- **Two averages:** the backtest reports the **season mean** (each season counts once) and the **pooled** score over all 2,657 per-match predictions (each match counts once). With 378–380 scored matches per season they agree closely; macro F1 differs slightly, because it has to be computed from the pooled predictions.
+- **Models vs bookmaker:** the bookmaker is first in 6 of 7 seasons. Pooled, every model trails it by 0.021–0.023 log loss, and the 95% paired-bootstrap intervals (about +0.013 to +0.031) exclude 0.
+- **Between the models:** no model beats another. Each is best among the three in 2–3 seasons, and the pooled differences (≤ 0.003) have intervals that include 0.
+- **Seasons vary more than models:** each model's log loss moves by about 0.05–0.06 between seasons. The commit-7 validation season 2025-26 was a hard one for the models *and* the bookmaker, and the gap to the bookmaker seen there (about 0.02) is typical.
+- **Selected settings vary from fold to fold** (e.g. Logistic Regression `C` from 0.0003 to 1.0), but the scores barely change: the tuning landscape is flat.
+
 ## Roadmap
 
 - [x] Project structure and environment
@@ -276,4 +319,5 @@ How to read it:
 - [x] Random Forest and XGBoost models
 - [x] Probability calibration and bookmaker benchmark
 - [x] Excel analysis and prediction dashboard
+- [x] Historical walk-forward backtesting
 - [ ] Final documentation and presentation

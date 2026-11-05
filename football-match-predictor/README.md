@@ -21,6 +21,8 @@ football-match-predictor/
 │   ├── backtest/       # Walk-forward backtest results (not tracked)
 │   ├── recency/        # Recency-weighting experiment results (not tracked)
 │   └── excel/          # Generated Excel workbook (not tracked)
+├── .streamlit/         # Streamlit theme and server settings for the app
+├── app.py              # Interactive match prediction app (streamlit run app.py)
 ├── requirements.txt
 └── README.md
 ```
@@ -356,6 +358,52 @@ Two kinds of uncertainty are reported:
 - **A 5-year half-life is the most consistent candidate.** It's better in 6 of 7 seasons (sign test p = 0.125), and every leave-one-season-out difference is negative. But its gain is about 0.3% of the log loss, its intervals reach 0, and it was the best of six strategies tried.
 - **Recommendation:** keep the expanding, equally weighted history. Treat a 5-year half-life as a candidate to confirm on a season not used here, not as a proven improvement.
 
+## Interactive prediction app
+
+A Streamlit app that predicts any Serie A fixture of the current season with the three saved models:
+
+```powershell
+# 1. Install the dependencies (includes Streamlit)
+pip install -r requirements.txt
+
+# 2. Generate the data and models once (all files are git-ignored)
+python -m src.data_loader            # download the Football-Data CSVs
+python -m src.preprocessing          # data/processed/matches.csv
+python -m src.feature_engineering    # data/processed/features.csv
+python -m src.train                  # outputs/models/*.joblib
+
+# 3. Run the app
+streamlit run app.py
+```
+
+Streamlit opens the app in your browser (by default at http://localhost:8501).
+
+**Using it.** Choose a home team, an away team and a match date in the sidebar.
+- **Clubs:** the clubs are read from the current season's matches in the data, not hardcoded, and a club can't be picked to play itself.
+- **For each model**, the app shows the home win, draw and away win probabilities, the most likely outcome, and fair decimal odds (`1 / probability`, no bookmaker margin).
+- **Comparison charts** show where the models agree and disagree. A simple average of the three can be switched on; it's labelled as unvalidated, because it was never trained or tested as a model of its own.
+- **Collapsible sections** show the fixture's pre-match features and explain the training period, the features, why the models differ, and their limitations.
+- **Historical demo mode** rebuilds any past fixture using only the results known before that day, and shows the actual result. It also warns when the match was part of the models' training data.
+
+**How a future fixture gets its features.** `src/predict.py` reuses the existing feature code instead of re-implementing it:
+1. It adds the fixture as one row with no score to the matches completed strictly before its date.
+2. It runs `src.feature_engineering.build_features` on that table.
+
+Because every feature is looked up from an earlier date only, the fixture never sees its own result or any match played on the same day or later. It gets exactly the 50 features, in the same order, that a played match on that date would have in `features.csv`. That includes season-to-date statistics, form carried across seasons, spells and promoted-team flags, and missing history.
+
+`tests/test_predict.py` checks this **parity**:
+- **Real data:** rebuilt historical matches equal their saved rows, including missing values. This covers random matches, each season's opening day and promoted clubs' first matches.
+- **Synthetic leagues:** a synthetic league exercises same-day leakage, season transitions, promotion after a gap, a club's first ever match, future fixtures and invalid inputs.
+
+**What the app does and doesn't use:**
+- **Saved models only:** the models from `python -m src.train`, with the feature order saved alongside each one. They were trained on 1993-94 to 2025-26.
+- **2026-27 results for features only:** completed 2026-27 matches feed into form and season-to-date features, but the models are never retrained on them.
+- **No network calls:** the app has no external APIs.
+- **Date limits:** dates outside the supported seasons, or after the end of the current season (when next season's clubs aren't known), produce a clear error message.
+- **Latest data date:** the app always shows the date of the latest completed match in the data. Matches played after it aren't reflected in the predictions.
+
+These are statistical estimates, not guarantees or betting recommendations.
+
 ## Roadmap
 
 - [x] Project structure and environment
@@ -369,4 +417,5 @@ Two kinds of uncertainty are reported:
 - [x] Excel analysis and prediction dashboard
 - [x] Historical walk-forward backtesting
 - [x] Recency weighting experiment
+- [x] Interactive match prediction app
 - [ ] Final documentation and presentation

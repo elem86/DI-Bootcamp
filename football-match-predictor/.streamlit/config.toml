@@ -1,0 +1,10 @@
+[theme]
+# Accent colour shared with the project's charts (categorical slot 1)
+primaryColor = "#2a78d6"
+
+[server]
+# The app reads only local files; no usage statistics are sent.
+headless = true
+
+[browser]
+gatherUsageStats = false

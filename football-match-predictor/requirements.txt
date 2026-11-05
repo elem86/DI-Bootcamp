@@ -15,6 +15,9 @@ seaborn>=0.13
 # Excel export
 openpyxl>=3.1
 
+# Interactive prediction app (app.py); tested with Streamlit 1.66
+streamlit>=1.66
+
 # Notebooks
 jupyter>=1.0
 ipykernel>=6.29

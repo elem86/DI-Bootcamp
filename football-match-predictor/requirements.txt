@@ -1,0 +1,22 @@
+# Core data handling
+pandas>=2.2
+numpy>=1.26
+requests>=2.31
+
+# Modelling
+scikit-learn>=1.5
+xgboost>=2.1
+
+# Visualisation
+matplotlib>=3.8
+seaborn>=0.13
+
+# Excel export
+openpyxl>=3.1
+
+# Notebooks
+jupyter>=1.0
+ipykernel>=6.29
+
+# Testing
+pytest>=8.0

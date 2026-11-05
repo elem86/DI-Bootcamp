@@ -82,7 +82,7 @@ This reads every raw file, fixes the format differences between seasons (ragged 
 - [x] Project structure and environment
 - [x] Load historical Serie A data
 - [x] Import and standardise Football-Data CSVs
-- [ ] Clean data and initial exploratory analysis
+- [x] Clean data and initial exploratory analysis
 - [ ] Engineer historical team performance features
 - [ ] Logistic Regression baseline model
 - [ ] Random Forest and XGBoost models

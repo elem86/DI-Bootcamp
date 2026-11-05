@@ -9,6 +9,7 @@ from src import config
 REQUIRED_PACKAGES = [
     "pandas",
     "numpy",
+    "scipy",
     "requests",
     "sklearn",
     "xgboost",

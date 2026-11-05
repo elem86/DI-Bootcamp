@@ -107,7 +107,7 @@ Form features are per-game averages: `ppg` (points: 3 for a win, 1 for a draw), 
 Train, tune and evaluate the first model (after building the features):
 
 ```powershell
-python -m src.train
+python -m src.train --models logistic_regression
 ```
 
 Multinomial Logistic Regression predicts home win (`H`), draw (`D`) or away win (`A`) from the pre-match features, using a strictly chronological split:
@@ -147,6 +147,40 @@ Outputs (git-ignored):
 - Draws are almost never predicted: draw probabilities stay between about 0.12 and 0.40, so a draw is rarely the single most likely outcome. The draw probabilities are still sensible on average.
 - Team strength drives the predictions, mainly last-season and season-to-date goal difference and points, and 10-match form.
 
+## Tree models: Random Forest and XGBoost
+
+Train all three models (Logistic Regression, Random Forest, XGBoost) and compare them:
+
+```powershell
+python -m src.train                                  # all models
+python -m src.train --models random_forest xgboost   # selected models
+```
+
+The tree models use exactly the same features, chronological splits, tuning-by-validation-log-loss and metrics as the Logistic Regression baseline. Model definitions and tuning grids live in `src/models.py`.
+
+| Model | Pipeline | Tuned on 2025-26 | Selected |
+|---|---|---|---|
+| Random Forest | Median imputer with missing indicators → `RandomForestClassifier` (400 trees) | `max_depth` × `min_samples_leaf` × feature set | compact, depth 12, 10 matches per leaf |
+| XGBoost | `XGBClassifier` (learning rate 0.03); missing values handled natively | `max_depth` × `n_estimators` × feature set | compact, depth 2, 250 trees |
+
+Each model saves its fitted pipeline, metrics and predictions under the same naming scheme as the Logistic Regression files (`outputs/models/<model>.joblib`, `outputs/predictions/<model>_test_2026-27.csv`, …). `outputs/models/model_comparison.csv` holds the side-by-side metrics. [notebooks/04_random_forest_xgboost.ipynb](notebooks/04_random_forest_xgboost.ipynb) covers the tuning, the results, how far the models agree, and permutation feature importance.
+
+| Season | Model | Accuracy | Macro F1 | Log loss |
+|---|---|---|---|---|
+| Validation 2025-26 (380 matches) | Logistic Regression | 51.8% | 0.413 | **1.002** |
+| | Random Forest | **52.9%** | **0.430** | 1.003 |
+| | XGBoost | 51.6% | 0.426 | 1.005 |
+| | Baseline | 38.9% | 0.187 | 1.102 |
+| Test 2026-27 (100 matches) | Logistic Regression | 60.0% | 0.460 | **0.882** |
+| | Random Forest | **63.0%** | **0.506** | 0.895 |
+| | XGBoost | 61.0% | 0.467 | **0.882** |
+| | Baseline | 47.0% | 0.213 | 1.060 |
+
+- All three models beat the baseline by a similar, large margin, but none clearly beats the others. Gaps of 1–3 accuracy points (1 point is a single test match) and at most 0.013 log loss are within the noise of these sample sizes.
+- The models agree on the predicted outcome for about 88% of validation matches, and their home-win probabilities correlate at 0.97–0.98. The tree models find no extra non-linear patterns in these features, so the information in the features, not the choice of model, limits accuracy.
+- Both tree models rely mainly on last-season and season-to-date strength, the same features that dominate the Logistic Regression.
+- Draws are still rarely predicted, so this is a property of the problem rather than of the linear model.
+
 ## Roadmap
 
 - [x] Project structure and environment
@@ -155,7 +189,7 @@ Outputs (git-ignored):
 - [x] Clean data and initial exploratory analysis
 - [x] Engineer historical team performance features
 - [x] Logistic Regression baseline model
-- [ ] Random Forest and XGBoost models
+- [x] Random Forest and XGBoost models
 - [ ] Compare historical vs advanced models
 - [ ] Excel analysis and visualisations
 - [ ] Final documentation and presentation

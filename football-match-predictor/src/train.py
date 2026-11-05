@@ -1,25 +1,30 @@
-"""Train and evaluate the baseline match-outcome model (multinomial Logistic Regression).
+"""Train and evaluate match-outcome models with a strictly chronological split.
 
 Usage (from the project folder, after ``python -m src.feature_engineering``)::
 
-    python -m src.train
+    python -m src.train                                  # all models
+    python -m src.train --models logistic_regression     # one or more models
+
+Models (defined in ``src/models.py``): multinomial Logistic Regression, Random
+Forest and XGBoost, each compared with a baseline that always predicts the
+most frequent training outcome.
 
 Chronological evaluation
 ------------------------
 1. **Tune**: fit on seasons 1993-94 to 2024-25 and score every candidate
-   (feature set x regularisation strength ``C``) on 2025-26. The candidate
+   (feature set x the model's hyperparameter grid) on 2025-26. The candidate
    with the lowest validation log loss is selected.
 2. **Final fit**: refit the selected candidate on 1993-94 to 2025-26.
 3. **Test**: predict the completed matches of 2026-27, which were never used
    for training, tuning, imputation or feature selection.
 
-Every model is a scikit-learn ``Pipeline`` (median imputation with missing
-indicators -> standardisation -> Logistic Regression), so the imputer and
-scaler are fitted on the training rows only.
+Every model is a scikit-learn ``Pipeline``, so any imputation or scaling is
+fitted on the training rows only.
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -27,21 +32,18 @@ from pathlib import Path
 import joblib
 import pandas as pd
 from sklearn.dummy import DummyClassifier
-from sklearn.impute import SimpleImputer
-from sklearn.linear_model import LogisticRegression
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
 
-from src.config import MODELS_DIR, PREDICTIONS_DIR, RANDOM_STATE
+from src.config import MODELS_DIR, PREDICTIONS_DIR
 from src.evaluate import evaluate, metrics_table, predict_probabilities, results_table
 from src.feature_engineering import FEATURE_COLUMNS, SIDES, TARGET_COLUMN, TARGET_COLUMNS, load_features
+from src.models import C_GRID, MODEL_SPECS, build_logistic_regression
 
 TRAIN_LAST_SEASON = 2024  # 1993-94 .. 2024-25
 VALIDATION_SEASON = 2025  # 2025-26
 TEST_SEASON = 2026  # 2026-27 (in progress: completed matches only)
 
-# Inverse regularisation strength: smaller C = stronger L2 penalty, smaller coefficients.
-C_GRID = (0.0001, 0.0003, 0.001, 0.003, 0.01, 0.03, 0.1, 0.3, 1.0)
+BASELINE_LABEL = "Baseline (always most frequent)"
 
 # The compact set keeps one window per feature family (the stronger 10-match
 # windows), drops goals-for/against (``gd`` already combines them, and
@@ -65,10 +67,10 @@ FEATURE_SETS = {
     "compact": [f"{side}_{name}" for side in SIDES for name in COMPACT_TEAM_FEATURES],
 }
 
-MODEL_FILE = MODELS_DIR / "logistic_regression.joblib"
-METRICS_FILE = MODELS_DIR / "logistic_regression_metrics.json"
-TEST_PREDICTIONS_FILE = PREDICTIONS_DIR / "logistic_regression_test_2026-27.csv"
-VALIDATION_PREDICTIONS_FILE = PREDICTIONS_DIR / "logistic_regression_validation_2025-26.csv"
+COMPARISON_FILE = MODELS_DIR / "model_comparison.csv"
+
+# Kept for backwards compatibility (notebook 03 and earlier code use this name).
+build_model = build_logistic_regression
 
 
 # ------------------------------------------------------------------ data
@@ -117,25 +119,6 @@ def target(frame: pd.DataFrame) -> pd.Series:
     return frame[TARGET_COLUMN].astype(str)
 
 
-# ------------------------------------------------------------------ models
-
-
-def build_model(C: float = 1.0) -> Pipeline:
-    """Median imputation (+ missing indicators) -> scaling -> Logistic Regression.
-
-    ``add_indicator=True`` adds a 0/1 column for every feature that had missing
-    values in training, so the model knows *that* history was missing (e.g. a
-    promoted team without last-season stats), not just the filled-in value.
-    """
-    return Pipeline(
-        [
-            ("impute", SimpleImputer(strategy="median", add_indicator=True)),
-            ("scale", StandardScaler()),
-            ("model", LogisticRegression(C=C, max_iter=5000, random_state=RANDOM_STATE)),
-        ]
-    )
-
-
 def build_baseline() -> DummyClassifier:
     """Always predicts the most frequent training outcome.
 
@@ -145,16 +128,21 @@ def build_baseline() -> DummyClassifier:
     return DummyClassifier(strategy="prior")
 
 
+def season_name(season_start: int) -> str:
+    return f"{season_start}-{str(season_start + 1)[-2:]}"
+
+
 # ------------------------------------------------------------------ workflow
 
 
 @dataclass
 class Experiment:
-    """Everything produced by one tuning + final evaluation run."""
+    """Everything produced by one tuning + final evaluation run of one model."""
 
+    model_name: str
     tuning: pd.DataFrame
     feature_set: str
-    C: float
+    params: dict
     validation: dict[str, dict]
     validation_results: pd.DataFrame
     model: Pipeline
@@ -164,27 +152,55 @@ class Experiment:
     seasons: dict = field(default_factory=dict)
 
     @property
+    def label(self) -> str:
+        return MODEL_SPECS[self.model_name].label
+
+    @property
     def feature_columns(self) -> list[str]:
         return FEATURE_SETS[self.feature_set]
 
+    @property
+    def C(self) -> float | None:
+        """Regularisation strength of a Logistic Regression experiment."""
+        return self.params.get("C")
 
-def tune(train: pd.DataFrame, validation: pd.DataFrame, feature_sets=None, c_grid=C_GRID) -> pd.DataFrame:
-    """Score every feature set x C candidate on the validation season."""
+
+def _resolve_grid(model_name: str, param_grid, c_grid) -> list[dict]:
+    if model_name not in MODEL_SPECS:
+        raise ValueError(f"Unknown model {model_name!r}; choose from {sorted(MODEL_SPECS)}")
+    if c_grid is not None:
+        if model_name != "logistic_regression":
+            raise ValueError("c_grid only applies to logistic_regression; use param_grid instead.")
+        return [{"C": C} for C in c_grid]
+    return list(param_grid) if param_grid is not None else MODEL_SPECS[model_name].param_grid
+
+
+def tune(
+    train: pd.DataFrame,
+    validation: pd.DataFrame,
+    feature_sets=None,
+    c_grid=None,
+    model_name: str = "logistic_regression",
+    param_grid=None,
+) -> pd.DataFrame:
+    """Score every feature set x parameter combination on the validation season."""
     feature_sets = feature_sets or FEATURE_SETS
+    candidates = _resolve_grid(model_name, param_grid, c_grid)
+    build = MODEL_SPECS[model_name].build
     rows = []
     for name, columns in feature_sets.items():
         X_train, X_val = feature_matrix(train, columns), feature_matrix(validation, columns)
-        for C in c_grid:
-            model = build_model(C).fit(X_train, target(train))
+        for index, params in enumerate(candidates):
+            model = build(**params).fit(X_train, target(train))
             metrics = evaluate(target(validation), predict_probabilities(model, X_val))
             rows.append(
-                {
-                    "feature_set": name,
-                    "features": len(columns),
-                    "C": C,
+                {"feature_set": name, "features": len(columns)}
+                | params
+                | {
                     "log_loss": metrics["log_loss"],
                     "accuracy": metrics["accuracy"],
                     "macro_f1": metrics["macro_f1"],
+                    "candidate": index,  # position in the parameter grid
                 }
             )
     return pd.DataFrame(rows).sort_values("log_loss", kind="stable").reset_index(drop=True)
@@ -196,44 +212,50 @@ def run_experiment(
     validation_season: int = VALIDATION_SEASON,
     test_season: int = TEST_SEASON,
     feature_sets=None,
-    c_grid=C_GRID,
+    c_grid=None,
+    model_name: str = "logistic_regression",
+    param_grid=None,
 ) -> Experiment:
     """Tune on the validation season, refit on train + validation, test on the test season."""
     feature_sets = feature_sets or FEATURE_SETS
+    candidates = _resolve_grid(model_name, param_grid, c_grid)
+    spec = MODEL_SPECS[model_name]
 
     # 1. Tune: train <= train_last_season, validate on validation_season
     train, validation = chronological_split(features, train_last_season, validation_season)
-    tuning = tune(train, validation, feature_sets, c_grid)
+    tuning = tune(train, validation, feature_sets, model_name=model_name, param_grid=candidates)
     best = tuning.iloc[0]
-    feature_set, C = str(best["feature_set"]), float(best["C"])
+    feature_set = str(best["feature_set"])
+    # Take the parameters from the grid itself: the tuning table turns None into
+    # NaN and integers into floats when a column mixes them (e.g. max_depth).
+    params = dict(candidates[int(best["candidate"])])
     columns = feature_sets[feature_set]
 
     X_train, X_val = feature_matrix(train, columns), feature_matrix(validation, columns)
-    val_model = build_model(C).fit(X_train, target(train))
+    val_model = spec.build(**params).fit(X_train, target(train))
     val_baseline = build_baseline().fit(X_train, target(train))
     val_probs = predict_probabilities(val_model, X_val)
     validation_metrics = {
-        "Logistic Regression": evaluate(target(validation), val_probs),
-        "Baseline (always most frequent)": evaluate(
-            target(validation), predict_probabilities(val_baseline, X_val)
-        ),
+        spec.label: evaluate(target(validation), val_probs),
+        BASELINE_LABEL: evaluate(target(validation), predict_probabilities(val_baseline, X_val)),
     }
 
     # 2. Final fit on everything before the test season; 3. test
     final_train, test = chronological_split(features, validation_season, test_season)
     X_final, X_test = feature_matrix(final_train, columns), feature_matrix(test, columns)
-    model = build_model(C).fit(X_final, target(final_train))
+    model = spec.build(**params).fit(X_final, target(final_train))
     baseline = build_baseline().fit(X_final, target(final_train))
     test_probs = predict_probabilities(model, X_test)
     test_metrics = {
-        "Logistic Regression": evaluate(target(test), test_probs),
-        "Baseline (always most frequent)": evaluate(target(test), predict_probabilities(baseline, X_test)),
+        spec.label: evaluate(target(test), test_probs),
+        BASELINE_LABEL: evaluate(target(test), predict_probabilities(baseline, X_test)),
     }
 
     return Experiment(
+        model_name=model_name,
         tuning=tuning,
         feature_set=feature_set,
-        C=C,
+        params=params,
         validation=validation_metrics,
         validation_results=results_table(validation, val_probs),
         model=model,
@@ -249,14 +271,43 @@ def run_experiment(
     )
 
 
+def comparison_table(experiments: list[Experiment]) -> pd.DataFrame:
+    """Validation and test metrics for every model plus the shared baseline."""
+    frames = []
+    for split in ("validation", "test"):
+        results = {}
+        for experiment in experiments:
+            results[experiment.label] = getattr(experiment, split)[experiment.label]
+        results[BASELINE_LABEL] = getattr(experiments[0], split)[BASELINE_LABEL]
+        table = metrics_table(results)
+        table.index = pd.MultiIndex.from_product([[split], table.index], names=["split", "model"])
+        frames.append(table)
+    return pd.concat(frames)
+
+
+# ------------------------------------------------------------------ artifacts
+
+
+def artifact_paths(experiment: Experiment) -> dict[str, Path]:
+    name = experiment.model_name
+    return {
+        "model": MODELS_DIR / f"{name}.joblib",
+        "metrics": MODELS_DIR / f"{name}_metrics.json",
+        "test_predictions": PREDICTIONS_DIR / f"{name}_test_{season_name(experiment.seasons['test'])}.csv",
+        "validation_predictions": PREDICTIONS_DIR
+        / f"{name}_validation_{season_name(experiment.seasons['validation'])}.csv",
+    }
+
+
 def save_artifacts(experiment: Experiment) -> dict[str, Path]:
     """Save the final model, metrics and predictions to the (git-ignored) output folders."""
     MODELS_DIR.mkdir(parents=True, exist_ok=True)
     PREDICTIONS_DIR.mkdir(parents=True, exist_ok=True)
+    paths = artifact_paths(experiment)
 
     joblib.dump(
         {"model": experiment.model, "feature_columns": experiment.feature_columns},
-        MODEL_FILE,
+        paths["model"],
     )
 
     def serialisable(results):
@@ -266,29 +317,45 @@ def save_artifacts(experiment: Experiment) -> dict[str, Path]:
             for name, m in results.items()
         }
 
-    METRICS_FILE.write_text(
+    tuning = experiment.tuning.astype(object).where(experiment.tuning.notna(), None)
+    paths["metrics"].write_text(
         json.dumps(
             {
-                "selected": {"feature_set": experiment.feature_set, "C": experiment.C},
+                "model": experiment.label,
+                "selected": {"feature_set": experiment.feature_set} | experiment.params,
                 "seasons": experiment.seasons,
                 "validation": serialisable(experiment.validation),
                 "test": serialisable(experiment.test),
-                "tuning": experiment.tuning.to_dict(orient="records"),
+                "tuning": tuning.to_dict(orient="records"),
             },
             indent=2,
         )
     )
-    experiment.test_results.to_csv(TEST_PREDICTIONS_FILE, index=False, date_format="%Y-%m-%d")
-    experiment.validation_results.to_csv(VALIDATION_PREDICTIONS_FILE, index=False, date_format="%Y-%m-%d")
-    return {
-        "model": MODEL_FILE,
-        "metrics": METRICS_FILE,
-        "test_predictions": TEST_PREDICTIONS_FILE,
-        "validation_predictions": VALIDATION_PREDICTIONS_FILE,
-    }
+    experiment.test_results.to_csv(paths["test_predictions"], index=False, date_format="%Y-%m-%d")
+    experiment.validation_results.to_csv(paths["validation_predictions"], index=False, date_format="%Y-%m-%d")
+    return paths
 
 
-def main() -> None:
+def save_comparison(experiments: list[Experiment], path: Path = COMPARISON_FILE) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    comparison_table(experiments).to_csv(path)
+    return path
+
+
+# ------------------------------------------------------------------ CLI
+
+
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(description="Train and evaluate match-outcome models.")
+    parser.add_argument(
+        "--models",
+        nargs="+",
+        choices=list(MODEL_SPECS),
+        default=list(MODEL_SPECS),
+        help="Models to train (default: all).",
+    )
+    args = parser.parse_args(argv)
+
     features = load_features()
     latest = int(features["season_start"].max())
     if latest != TEST_SEASON:
@@ -297,17 +364,21 @@ def main() -> None:
             "Update the season constants in src/train.py."
         )
 
-    experiment = run_experiment(features)
-    paths = save_artifacts(experiment)
+    pd.set_option("display.width", 140)
+    experiments = []
+    for model_name in args.models:
+        experiment = run_experiment(features, model_name=model_name)
+        paths = save_artifacts(experiment)
+        experiments.append(experiment)
+        params = ", ".join(f"{k} = {v}" for k, v in experiment.params.items())
+        print(f"{experiment.label}: feature set '{experiment.feature_set}', {params}")
+        for name, path in paths.items():
+            print(f"  saved {name}: {path.relative_to(path.parents[2])}")
 
-    pd.set_option("display.width", 120)
-    print(f"Selected: feature set '{experiment.feature_set}', C = {experiment.C}\n")
-    print("Validation (2025-26):")
-    print(metrics_table(experiment.validation).round(3).to_string(), "\n")
-    print("Test (2026-27, completed matches):")
-    print(metrics_table(experiment.test).round(3).to_string(), "\n")
-    for name, path in paths.items():
-        print(f"Saved {name}: {path}")
+    path = save_comparison(experiments)
+    print(f"\nValidation ({season_name(VALIDATION_SEASON)}) and test ({season_name(TEST_SEASON)}):")
+    print(comparison_table(experiments).round(3).to_string())
+    print(f"\nSaved comparison: {path.relative_to(path.parents[2])}")
 
 
 if __name__ == "__main__":

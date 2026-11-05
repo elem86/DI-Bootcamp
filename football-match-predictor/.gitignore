@@ -37,6 +37,10 @@ outputs/predictions/*
 outputs/backtest/*
 !outputs/backtest/.gitkeep
 
+# Recency-weighting experiment results (python -m src.recency)
+outputs/recency/*
+!outputs/recency/.gitkeep
+
 # Generated Excel workbooks (python -m src.excel_report)
 outputs/excel/*
 !outputs/excel/.gitkeep

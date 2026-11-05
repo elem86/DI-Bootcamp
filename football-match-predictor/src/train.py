@@ -175,6 +175,20 @@ def _resolve_grid(model_name: str, param_grid, c_grid) -> list[dict]:
     return list(param_grid) if param_grid is not None else MODEL_SPECS[model_name].param_grid
 
 
+def training_data(train: pd.DataFrame, strategy=None) -> tuple[pd.DataFrame, dict]:
+    """Rows to fit on and extra ``fit`` arguments, after an optional training strategy.
+
+    ``strategy`` (e.g. ``src.recency.RecencyStrategy``) may drop old rows (a
+    rolling window) and/or return per-row sample weights, which are passed to the
+    pipeline's final ``model`` step. Without a strategy every row counts equally,
+    exactly as before. Imputation and scaling are fitted on the kept rows, unweighted.
+    """
+    if strategy is None:
+        return train, {}
+    rows, weights = strategy.prepare(train)
+    return rows, ({} if weights is None else {"model__sample_weight": weights})
+
+
 def tune(
     train: pd.DataFrame,
     validation: pd.DataFrame,
@@ -182,16 +196,18 @@ def tune(
     c_grid=None,
     model_name: str = "logistic_regression",
     param_grid=None,
+    strategy=None,
 ) -> pd.DataFrame:
     """Score every feature set x parameter combination on the validation season."""
     feature_sets = feature_sets or FEATURE_SETS
     candidates = _resolve_grid(model_name, param_grid, c_grid)
     build = MODEL_SPECS[model_name].build
+    train, fit_params = training_data(train, strategy)
     rows = []
     for name, columns in feature_sets.items():
         X_train, X_val = feature_matrix(train, columns), feature_matrix(validation, columns)
         for index, params in enumerate(candidates):
-            model = build(**params).fit(X_train, target(train))
+            model = build(**params).fit(X_train, target(train), **fit_params)
             metrics = evaluate(target(validation), predict_probabilities(model, X_val))
             rows.append(
                 {"feature_set": name, "features": len(columns)}
@@ -215,15 +231,21 @@ def run_experiment(
     c_grid=None,
     model_name: str = "logistic_regression",
     param_grid=None,
+    strategy=None,
 ) -> Experiment:
-    """Tune on the validation season, refit on train + validation, test on the test season."""
+    """Tune on the validation season, refit on train + validation, test on the test season.
+
+    ``strategy`` (optional, see ``training_data``) is applied the same way to the
+    tuning fits and to the final fit. The baseline always uses every training row.
+    """
     feature_sets = feature_sets or FEATURE_SETS
     candidates = _resolve_grid(model_name, param_grid, c_grid)
     spec = MODEL_SPECS[model_name]
 
     # 1. Tune: train <= train_last_season, validate on validation_season
     train, validation = chronological_split(features, train_last_season, validation_season)
-    tuning = tune(train, validation, feature_sets, model_name=model_name, param_grid=candidates)
+    tuning = tune(train, validation, feature_sets, model_name=model_name, param_grid=candidates,
+                  strategy=strategy)
     best = tuning.iloc[0]
     feature_set = str(best["feature_set"])
     # Take the parameters from the grid itself: the tuning table turns None into
@@ -232,7 +254,8 @@ def run_experiment(
     columns = feature_sets[feature_set]
 
     X_train, X_val = feature_matrix(train, columns), feature_matrix(validation, columns)
-    val_model = spec.build(**params).fit(X_train, target(train))
+    fit_rows, fit_params = training_data(train, strategy)
+    val_model = spec.build(**params).fit(feature_matrix(fit_rows, columns), target(fit_rows), **fit_params)
     val_baseline = build_baseline().fit(X_train, target(train))
     val_probs = predict_probabilities(val_model, X_val)
     validation_metrics = {
@@ -243,7 +266,8 @@ def run_experiment(
     # 2. Final fit on everything before the test season; 3. test
     final_train, test = chronological_split(features, validation_season, test_season)
     X_final, X_test = feature_matrix(final_train, columns), feature_matrix(test, columns)
-    model = spec.build(**params).fit(X_final, target(final_train))
+    fit_rows, fit_params = training_data(final_train, strategy)
+    model = spec.build(**params).fit(feature_matrix(fit_rows, columns), target(fit_rows), **fit_params)
     baseline = build_baseline().fit(X_final, target(final_train))
     test_probs = predict_probabilities(model, X_test)
     test_metrics = {

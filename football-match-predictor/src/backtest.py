@@ -118,8 +118,13 @@ def run_fold(
     model_name: str,
     param_grid: list[dict] | None = None,
     feature_sets: dict[str, list[str]] | None = None,
+    strategy=None,
 ) -> FoldResult:
-    """Tune on S-2 -> S-1, refit on everything before S, predict season S."""
+    """Tune on S-2 -> S-1, refit on everything before S, predict season S.
+
+    ``strategy`` (optional, e.g. a ``src.recency.RecencyStrategy``) is applied to
+    the training rows of the tuning fits and of the final fit alike.
+    """
     check_season(season, features)
     # Nothing after the evaluation season exists for this fold.
     visible = features[features["season_start"] <= season]
@@ -131,6 +136,7 @@ def run_fold(
         feature_sets=feature_sets,
         model_name=model_name,
         param_grid=param_grid,
+        strategy=strategy,
     )
     final_train, evaluation = chronological_split(visible, season - 1, season)
     baseline = predict_probabilities(experiment.baseline, feature_matrix(evaluation, experiment.feature_columns))
@@ -180,6 +186,7 @@ def run_backtest(
     param_grids: dict[str, list[dict]] | None = None,
     feature_sets: dict[str, list[str]] | None = None,
     progress=None,
+    strategy=None,
 ) -> Backtest:
     """Walk-forward evaluation of every model on every season, plus baseline and bookmaker."""
     models = list(models or MODEL_SPECS)
@@ -188,7 +195,7 @@ def run_backtest(
     for season in sorted(seasons):
         reference, baseline = None, None
         for model_name in models:
-            fold = run_fold(features, season, model_name, param_grids.get(model_name), feature_sets)
+            fold = run_fold(features, season, model_name, param_grids.get(model_name), feature_sets, strategy)
             table = fold.predictions.sort_values(FIXTURE_KEYS, kind="stable")
             if reference is None:
                 reference = table.reset_index(drop=True)
@@ -235,6 +242,12 @@ def common_fixtures(predictions: pd.DataFrame, forecasts=None) -> pd.DataFrame:
     return common.sort_values(["season", "forecast", *FIXTURE_KEYS], kind="stable").reset_index(drop=True)
 
 
+def forecast_order(names) -> list[str]:
+    """The standard forecasts in their usual order, then any others (e.g. recency strategies) as they appear."""
+    names = list(dict.fromkeys(names))
+    return [f for f in FORECASTS if f in names] + [n for n in names if n not in FORECASTS]
+
+
 def _scores(rows: pd.DataFrame) -> dict:
     m = evaluate(rows["actual"].reset_index(drop=True), rows[OUTCOMES].reset_index(drop=True))
     return {"matches": m["matches"]} | {k: m[k] for k in METRICS}
@@ -251,7 +264,7 @@ def season_metrics(predictions: pd.DataFrame, common: bool = True) -> pd.DataFra
     result = pd.DataFrame(table).T
     result.index.names = ["season", "forecast"]
     result["matches"] = result["matches"].astype(int)
-    order = [f for f in FORECASTS if f in result.index.get_level_values("forecast")]
+    order = forecast_order(result.index.get_level_values("forecast"))
     return result.reindex(pd.MultiIndex.from_product([sorted(result.index.unique("season")), order],
                                                      names=["season", "forecast"]))
 
@@ -267,7 +280,7 @@ def pooled_metrics(predictions: pd.DataFrame, common: bool = True) -> pd.DataFra
     table = pd.DataFrame({forecast: _scores(group) for forecast, group in rows.groupby("forecast")}).T
     table["matches"] = table["matches"].astype(int)
     table["seasons"] = rows.groupby("forecast")["season"].nunique()
-    return table.reindex([f for f in FORECASTS if f in table.index])
+    return table.reindex(forecast_order(table.index))
 
 
 def summary_table(predictions: pd.DataFrame, common: bool = True) -> pd.DataFrame:

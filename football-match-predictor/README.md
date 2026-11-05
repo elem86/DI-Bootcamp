@@ -19,6 +19,7 @@ football-match-predictor/
 │   ├── models/         # Saved trained models and metrics (not tracked)
 │   ├── predictions/    # Saved model predictions (not tracked)
 │   ├── backtest/       # Walk-forward backtest results (not tracked)
+│   ├── recency/        # Recency-weighting experiment results (not tracked)
 │   └── excel/          # Generated Excel workbook (not tracked)
 ├── requirements.txt
 └── README.md
@@ -308,6 +309,53 @@ In 2022-23, the one season where the bookmaker isn't first, Logistic Regression 
 - **Seasons vary more than models:** each model's log loss moves by about 0.05–0.06 between seasons. The commit-7 validation season 2025-26 was a hard one for the models *and* the bookmaker, and the gap to the bookmaker seen there (about 0.02) is typical.
 - **Selected settings vary from fold to fold** (e.g. Logistic Regression `C` from 0.0003 to 1.0), but the scores barely change: the tuning landscape is flat.
 
+## Recency weighting experiment
+
+Does Logistic Regression predict better if recent seasons count more than old ones? `src/recency.py` adds three training strategies to the walk-forward backtest:
+
+```powershell
+python -m src.recency      # 7 strategies x 7 seasons, about 4 minutes
+```
+
+Results are saved to `outputs/recency/` (git-ignored). [notebooks/07_recency_experiments.ipynb](notebooks/07_recency_experiments.ipynb) runs the experiment and presents it.
+
+| Strategy | Training data | Settings tested |
+|---|---|---|
+| Expanding (control) | Every earlier season, equal weights (the commit-10 procedure) | — |
+| Rolling window | Only the last *k* training seasons | *k* = 3, 5, 10 |
+| Exponential decay | Every earlier season, older matches weighted less | half-life *h* = 1, 2, 5 years |
+
+**Weight formula.** `age_i = (cutoff − date_i)` in days / 365.25, where `cutoff` is the date of the most recent training match. Then `w_i = 0.5 ** (age_i / h)`, rescaled so that the mean weight is 1:
+- the total weight equals the number of matches, as in the control;
+- a match *h* years older counts half as much.
+
+**How each fold is run:**
+- **Same procedure for every strategy:** each runs the full commit-10 fold procedure (past-only choice of feature set and `C`, then refit), with the strategy applied to both the inner tuning fits and the final fit.
+- **Where weights apply:** weights go to the Logistic Regression step; the imputer and scaler are fitted on the same rows without weights.
+- **Fresh control:** the control is re-evaluated with the same code, and reproduces the commit-10 Logistic Regression predictions exactly.
+- **Identical fixtures:** all strategies are scored on the same 2,657 fixtures.
+- **Untouched:** neither 2025-26 nor 2026-27 is used.
+
+| Strategy | Pooled log loss | vs control | Seasons better than control | Season-level 95% interval |
+|---|---|---|---|---|
+| Expanding (control) | 0.9834 | — | — | — |
+| Window: 3 seasons | 0.9850 | +0.0016 | 3 of 7 | −0.0085 to +0.0117 |
+| Window: 5 seasons | 0.9848 | +0.0014 | 3 of 7 | −0.0083 to +0.0111 |
+| Window: 10 seasons | 0.9822 | −0.0012 | 4 of 7 | −0.0067 to +0.0043 |
+| Half-life: 1 year | 0.9867 | +0.0032 | 1 of 7 | −0.0028 to +0.0093 |
+| Half-life: 2 years | 0.9831 | −0.0003 | 3 of 7 | −0.0075 to +0.0069 |
+| Half-life: 5 years | **0.9807** | **−0.0027** | 6 of 7 | −0.0065 to +0.0010 |
+
+Two kinds of uncertainty are reported:
+- **Match level:** a paired bootstrap over all matches.
+- **Season level:** because matches within a season are not independent, each season is also treated as one observation, with a t-interval, an exact sign test and a leave-one-season-out check.
+
+**Results:**
+- **No strategy beats the control by more than the uncertainty.** The differences are at most about 0.003 log loss, roughly an eighth of the gap to the bookmaker. Every match-level and season-level log-loss interval includes 0.
+- **Shorter memory is not better.** Windows of 3–5 seasons and a 1-year half-life are worse on average, and they swing the most from season to season.
+- **A 5-year half-life is the most consistent candidate.** It's better in 6 of 7 seasons (sign test p = 0.125), and every leave-one-season-out difference is negative. But its gain is about 0.3% of the log loss, its intervals reach 0, and it was the best of six strategies tried.
+- **Recommendation:** keep the expanding, equally weighted history. Treat a 5-year half-life as a candidate to confirm on a season not used here, not as a proven improvement.
+
 ## Roadmap
 
 - [x] Project structure and environment
@@ -320,4 +368,5 @@ In 2022-23, the one season where the bookmaker isn't first, Logistic Regression 
 - [x] Probability calibration and bookmaker benchmark
 - [x] Excel analysis and prediction dashboard
 - [x] Historical walk-forward backtesting
+- [x] Recency weighting experiment
 - [ ] Final documentation and presentation

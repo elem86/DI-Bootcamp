@@ -31,6 +31,7 @@ def test_required_package_importable(package):
         config.PROCESSED_DATA_DIR,
         config.FIGURES_DIR,
         config.MODELS_DIR,
+        config.PREDICTIONS_DIR,
     ],
 )
 def test_project_directories_exist(path):

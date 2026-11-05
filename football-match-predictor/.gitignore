@@ -29,5 +29,9 @@ data/processed/*
 outputs/models/*
 !outputs/models/.gitkeep
 
+# Generated predictions
+outputs/predictions/*
+!outputs/predictions/.gitkeep
+
 # Excel lock files
 ~$*.xlsx

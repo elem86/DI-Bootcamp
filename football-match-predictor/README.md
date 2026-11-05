@@ -16,7 +16,8 @@ football-match-predictor/
 ├── tests/              # Automated tests (pytest)
 ├── outputs/
 │   ├── figures/        # Charts produced by notebooks/scripts
-│   └── models/         # Saved trained models (not tracked)
+│   ├── models/         # Saved trained models and metrics (not tracked)
+│   └── predictions/    # Saved model predictions (not tracked)
 ├── requirements.txt
 └── README.md
 ```
@@ -101,6 +102,51 @@ Form features are per-game averages: `ppg` (points: 3 for a win, 1 for a draw), 
 - **Season transitions:** form windows carry over the summer break for teams that stay in Serie A. A team arriving after a gap (promoted) starts with no history, because its Serie B matches are not in the data. Season-to-date features restart every season.
 - **Missing history is explicit:** a form window is missing (NaN) until the team has played the full number of matches, rather than averaged over fewer. Last-season features are missing for promoted teams, which the `promoted` flag marks. In 1993-94, the first season in the data, `promoted` is unknown.
 
+## Baseline model: Logistic Regression
+
+Train, tune and evaluate the first model (after building the features):
+
+```powershell
+python -m src.train
+```
+
+Multinomial Logistic Regression predicts home win (`H`), draw (`D`) or away win (`A`) from the pre-match features, using a strictly chronological split:
+
+| Step | Seasons |
+|---|---|
+| Train | 1993-94 to 2024-25 |
+| Validate: choose the feature set and regularisation strength `C` by log loss | 2025-26 |
+| Final training: refit the chosen model | 1993-94 to 2025-26 |
+| Test | 2026-27, completed matches only |
+
+The model is a scikit-learn `Pipeline`, so preprocessing is fitted on the training rows only:
+1. `SimpleImputer(strategy="median", add_indicator=True)` fills missing history (no matches are dropped) and adds a 0/1 indicator for each feature that can be missing.
+2. `StandardScaler` puts every feature on the same scale.
+3. L2-regularised `LogisticRegression` makes the prediction.
+
+The `promoted` flag is kept as a feature. Two feature sets are compared: all 50 features, and a compact set of 22 that drops redundant columns (`gd = gf − ga`, and the 5-match windows). The baseline always predicts the most frequent training outcome (home win), with the training outcome frequencies as its probabilities.
+
+Outputs (git-ignored):
+- `outputs/models/logistic_regression.joblib`: the fitted pipeline and its feature list
+- `outputs/models/logistic_regression_metrics.json`: all metrics and tuning results
+- `outputs/predictions/logistic_regression_test_2026-27.csv`: one row per test match, with date, teams, actual and predicted outcome, and the home-win, draw and away-win probabilities (`…_validation_2025-26.csv` holds the same for the validation season)
+
+[notebooks/03_baseline_model.ipynb](notebooks/03_baseline_model.ipynb) explains the process and visualises the results.
+
+**Results.** The selected model uses the compact feature set with strong regularisation (`C = 0.001`).
+
+| Season | Model | Accuracy | Macro F1 | Log loss | Home win acc. | Draw acc. | Away win acc. |
+|---|---|---|---|---|---|---|---|
+| Validation 2025-26 (380 matches) | Logistic Regression | 51.8% | 0.413 | 1.002 | 79.1% | 3.0% | 57.9% |
+| | Baseline | 38.9% | 0.187 | 1.102 | 100% | 0% | 0% |
+| Test 2026-27 (100 matches) | Logistic Regression | 60.0% | 0.460 | 0.882 | 80.9% | 6.2% | 56.8% |
+| | Baseline | 47.0% | 0.213 | 1.060 | 100% | 0% | 0% |
+
+- The model beats the baseline on accuracy, macro F1 and log loss in both seasons.
+- The test season has only 100 matches (95% interval for accuracy about ±10 points), so the 380-match validation season is the steadier estimate.
+- Draws are almost never predicted: draw probabilities stay between about 0.12 and 0.40, so a draw is rarely the single most likely outcome. The draw probabilities are still sensible on average.
+- Team strength drives the predictions, mainly last-season and season-to-date goal difference and points, and 10-match form.
+
 ## Roadmap
 
 - [x] Project structure and environment
@@ -108,7 +154,7 @@ Form features are per-game averages: `ppg` (points: 3 for a win, 1 for a draw), 
 - [x] Import and standardise Football-Data CSVs
 - [x] Clean data and initial exploratory analysis
 - [x] Engineer historical team performance features
-- [ ] Logistic Regression baseline model
+- [x] Logistic Regression baseline model
 - [ ] Random Forest and XGBoost models
 - [ ] Compare historical vs advanced models
 - [ ] Excel analysis and visualisations

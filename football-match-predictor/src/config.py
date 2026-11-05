@@ -11,6 +11,7 @@ PROCESSED_DATA_DIR = DATA_DIR / "processed"
 OUTPUTS_DIR = PROJECT_ROOT / "outputs"
 FIGURES_DIR = OUTPUTS_DIR / "figures"
 MODELS_DIR = OUTPUTS_DIR / "models"
+PREDICTIONS_DIR = OUTPUTS_DIR / "predictions"
 
 # Fixed seed so model results are reproducible between runs.
 RANDOM_STATE = 42

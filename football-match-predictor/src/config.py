@@ -12,6 +12,7 @@ OUTPUTS_DIR = PROJECT_ROOT / "outputs"
 FIGURES_DIR = OUTPUTS_DIR / "figures"
 MODELS_DIR = OUTPUTS_DIR / "models"
 PREDICTIONS_DIR = OUTPUTS_DIR / "predictions"
+EXCEL_DIR = OUTPUTS_DIR / "excel"
 
 # Fixed seed so model results are reproducible between runs.
 RANDOM_STATE = 42

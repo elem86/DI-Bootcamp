@@ -33,5 +33,9 @@ outputs/models/*
 outputs/predictions/*
 !outputs/predictions/.gitkeep
 
+# Generated Excel workbooks (python -m src.excel_report)
+outputs/excel/*
+!outputs/excel/.gitkeep
+
 # Excel lock files
 ~$*.xlsx

@@ -17,7 +17,8 @@ football-match-predictor/
 ├── outputs/
 │   ├── figures/        # Charts produced by notebooks/scripts
 │   ├── models/         # Saved trained models and metrics (not tracked)
-│   └── predictions/    # Saved model predictions (not tracked)
+│   ├── predictions/    # Saved model predictions (not tracked)
+│   └── excel/          # Generated Excel workbook (not tracked)
 ├── requirements.txt
 └── README.md
 ```
@@ -233,6 +234,37 @@ Paired bootstrap of the difference in log loss (10,000 resamples of the matches,
   - Each split is a single season.
   - The models' settings were chosen on the validation season.
 
+## Excel workbook
+
+Generate a professional Excel workbook from the processed data and the saved predictions:
+
+```powershell
+python -m src.train          # only if outputs/predictions/ is empty (it is not tracked in git)
+python -m src.excel_report   # writes outputs/excel/serie_a_prediction_analysis.xlsx
+```
+
+Then open `outputs/excel/serie_a_prediction_analysis.xlsx` in Microsoft Excel. If Excel opens it in Protected View, click **Enable Editing** so that the formulas calculate. The workbook is generated output, so it stays in the git-ignored `outputs/excel/` folder; only the generator (`src/excel_report.py`) is committed.
+
+No model is retrained and no prediction changes: the generator reads `data/processed/matches.csv` and the saved per-match predictions in `outputs/predictions/`.
+
+| Sheet | Contents |
+|---|---|
+| **Overview** | Dashboard with headline numbers (Excel formulas), the evaluation plan with sample sizes, key findings, metric definitions and charts |
+| **Historical Trends** | One row per season: outcome shares, goals per match, odds coverage and bookmaker margin, all as `COUNTIFS`/`SUMIFS` formulas over Match Data; the in-progress season is highlighted |
+| **Model Comparison** | Accuracy, macro F1, log loss, Brier score and per-outcome accuracy for each model, the bookmaker and the baseline, on validation and test; plus log-loss rank, gain over the baseline, and the baseline probabilities rebuilt from the match data |
+| **Validation 2025-26** | 380 fixtures: each model's probabilities, plus formulas for its pick, whether it was correct, per-match log loss and Brier score |
+| **Test 2026-27** | The same for the 100 completed matches; marked as an incomplete season |
+| **Model vs Bookmaker** | Every fixture with Bet365 odds: overround and margin-free bookmaker probabilities (formulas), each forecast's per-match log loss, a season summary, and the paired-bootstrap intervals |
+| **Match Data** | All 11,826 completed matches with results and odds (the source of the formulas) |
+
+How to read it:
+- **Colours:** blue text = values from the Python pipeline; black = Excel formulas; green = formulas that pull from another sheet.
+- **Tables:** every table is an Excel table with filters, frozen headers and conditional formatting.
+- **Check column:** the **Check (recomputed in Excel)** column on Model Comparison confirms that Excel's own formulas reproduce the Python metrics; every row should read `OK`.
+- **Validation and test:** each has its own sheet, every table shows the number of matches, and the 2026-27 season is labelled *in progress* everywhere.
+
+`tests/test_excel_report.py` checks the sheet names, that every fixture and probability matches the saved predictions, that the metrics match an independent evaluation, that the odds belong to the right fixtures, and that the formulas point at the right cells.
+
 ## Roadmap
 
 - [x] Project structure and environment
@@ -243,5 +275,5 @@ Paired bootstrap of the difference in log loss (10,000 resamples of the matches,
 - [x] Logistic Regression baseline model
 - [x] Random Forest and XGBoost models
 - [x] Probability calibration and bookmaker benchmark
-- [ ] Excel analysis and visualisations
+- [x] Excel analysis and prediction dashboard
 - [ ] Final documentation and presentation

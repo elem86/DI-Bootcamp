@@ -47,7 +47,10 @@ def test_xgboost_wrapper_accepts_string_labels():
 
     assert list(model.classes_) == ["A", "D", "H"]
     assert set(model.predict(X)) <= {"A", "D", "H"}
-    assert model.predict_proba(X).shape == (6, 3)
+    probs = model.predict_proba(X)
+    assert probs.shape == (6, 3)
+    assert probs.dtype == np.float64  # XGBoost itself returns float32
+    np.testing.assert_allclose(probs.sum(axis=1), 1.0, rtol=0, atol=1e-12)
 
 
 def test_xgboost_wrapper_is_a_proper_sklearn_estimator():

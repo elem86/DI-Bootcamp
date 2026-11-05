@@ -181,6 +181,58 @@ Each model saves its fitted pipeline, metrics and predictions under the same nam
 - Both tree models rely mainly on last-season and season-to-date strength, the same features that dominate the Logistic Regression.
 - Draws are still rarely predicted, so this is a property of the problem rather than of the linear model.
 
+## Probability calibration and bookmaker benchmark
+
+[notebooks/05_probability_analysis.ipynb](notebooks/05_probability_analysis.ipynb) checks how good the models' **probabilities** are, not just their top picks, and compares them with Bet365's betting odds. Nothing is retrained or tuned: the notebook reads the predictions saved by `python -m src.train`.
+
+- **Prediction accuracy** (accuracy, macro F1) only looks at the most likely outcome.
+- **Probability quality** looks at all three probabilities:
+  - **Log loss**
+  - **Multiclass Brier score**: the squared distance between the probabilities and the outcome; 0 is perfect, 0.667 is 1/3 each, 2 is certain and wrong.
+  - **Calibration**: do the "40%" predictions happen about 40% of the time?
+
+**Bookmaker benchmark.** Bet365's 1X2 odds (`b365_home/draw/away`) become probabilities as `1 / odds`, normalised so that each match's three probabilities sum to 1. This removes the bookmaker's margin (overround), which averages 5.5% in 2025-26 and 2026-27.
+- The odds are used **only as a benchmark**, never as model features.
+- They are matched to each fixture by date, home team and away team, and the stored result must agree.
+- All 380 validation and 100 test matches have complete odds, so every forecast is scored on exactly the same fixtures.
+- There is no betting-profit analysis.
+
+Reusable code:
+- `src/evaluate.py`: Brier score, per-match losses, reliability tables with Wilson intervals, per-outcome calibration summary, paired bootstrap.
+- `src/bookmaker.py`: implied probabilities, overround, odds coverage, fixture matching.
+
+| Season | Forecast | Accuracy | Log loss | Brier |
+|---|---|---|---|---|
+| Validation 2025-26 (380 matches) | Logistic Regression | 51.8% | 1.002 | 0.599 |
+| | Random Forest | 52.9% | 1.003 | 0.601 |
+| | XGBoost | 51.6% | 1.005 | 0.602 |
+| | Bookmaker (Bet365) | **53.9%** | **0.982** | **0.584** |
+| | Baseline | 38.9% | 1.102 | 0.669 |
+| Test 2026-27 (100 matches) | Logistic Regression | 60.0% | **0.882** | 0.508 |
+| | Random Forest | **63.0%** | 0.895 | 0.518 |
+| | XGBoost | 61.0% | **0.882** | **0.508** |
+| | Bookmaker (Bet365) | **63.0%** | 0.898 | 0.520 |
+| | Baseline | 47.0% | 1.060 | 0.640 |
+
+Paired bootstrap of the difference in log loss (10,000 resamples of the matches, 95% intervals):
+
+| Comparison | Validation 2025-26 | Test 2026-27 |
+|---|---|---|
+| Logistic Regression − Bookmaker | +0.020 [+0.000, +0.040] | −0.016 [−0.054, +0.023] |
+| Random Forest − Bookmaker | +0.021 [+0.002, +0.040] | −0.002 [−0.037, +0.033] |
+| XGBoost − Bookmaker | +0.023 [+0.003, +0.042] | −0.015 [−0.048, +0.017] |
+| Between the three models | every interval includes 0 | every interval includes 0 |
+
+- **Validation:** the bookmaker's probabilities are better than every model's by about 0.02 log loss. The intervals lie only just above 0, so this is probably a real but small gap.
+- **Test:** the models score slightly better, but 100 matches cannot separate any of the forecasts.
+- **Accuracy is not probability quality:** on test, the bookmaker ties for the best accuracy yet has the worst log loss of the four.
+- **Calibration:** the models are reasonably calibrated for home win, draw and away win. They are slightly over-confident about strong home favourites. Their largest misses are season-wide and shared with the bookmaker: fewer home wins than usual in 2025-26, and fewer draws so far in 2026-27.
+- **Spread:** all four forecasts spread their probabilities almost equally. The bookmaker's edge comes from ranking matches better (team news, transfers, promoted teams), not from bolder probabilities. Nobody can single out likely draws.
+- **Limitations:**
+  - The bootstrap assumes independent matches and makes six comparisons per season without correction, so it is not a formal significance test.
+  - Each split is a single season.
+  - The models' settings were chosen on the validation season.
+
 ## Roadmap
 
 - [x] Project structure and environment
@@ -190,6 +242,6 @@ Each model saves its fitted pipeline, metrics and predictions under the same nam
 - [x] Engineer historical team performance features
 - [x] Logistic Regression baseline model
 - [x] Random Forest and XGBoost models
-- [ ] Compare historical vs advanced models
+- [x] Probability calibration and bookmaker benchmark
 - [ ] Excel analysis and visualisations
 - [ ] Final documentation and presentation

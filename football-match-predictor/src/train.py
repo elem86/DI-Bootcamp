@@ -288,15 +288,33 @@ def comparison_table(experiments: list[Experiment]) -> pd.DataFrame:
 # ------------------------------------------------------------------ artifacts
 
 
+SPLIT_SEASONS = {"validation": VALIDATION_SEASON, "test": TEST_SEASON}
+
+
+def predictions_path(model_name: str, split: str, season_start: int | None = None) -> Path:
+    """Where the per-match predictions of one model on one split are saved."""
+    if split not in SPLIT_SEASONS:
+        raise ValueError(f"split must be one of {sorted(SPLIT_SEASONS)}")
+    season_start = SPLIT_SEASONS[split] if season_start is None else season_start
+    return PREDICTIONS_DIR / f"{model_name}_{split}_{season_name(season_start)}.csv"
+
+
 def artifact_paths(experiment: Experiment) -> dict[str, Path]:
     name = experiment.model_name
     return {
         "model": MODELS_DIR / f"{name}.joblib",
         "metrics": MODELS_DIR / f"{name}_metrics.json",
-        "test_predictions": PREDICTIONS_DIR / f"{name}_test_{season_name(experiment.seasons['test'])}.csv",
-        "validation_predictions": PREDICTIONS_DIR
-        / f"{name}_validation_{season_name(experiment.seasons['validation'])}.csv",
+        "test_predictions": predictions_path(name, "test", experiment.seasons["test"]),
+        "validation_predictions": predictions_path(name, "validation", experiment.seasons["validation"]),
     }
+
+
+def load_predictions(model_name: str, split: str, season_start: int | None = None) -> pd.DataFrame:
+    """Read saved per-match predictions (written by ``save_artifacts``)."""
+    path = predictions_path(model_name, split, season_start)
+    if not path.exists():
+        raise FileNotFoundError(f"{path} not found; run `python -m src.train` first.")
+    return pd.read_csv(path, parse_dates=["date"]).astype({"date": "datetime64[ns]"})
 
 
 def save_artifacts(experiment: Experiment) -> dict[str, Path]:

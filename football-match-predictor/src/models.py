@@ -134,7 +134,10 @@ class XGBOutcomeClassifier(ClassifierMixin, BaseEstimator):
 
     def predict_proba(self, X):
         check_is_fitted(self, "booster_")
-        return self.booster_.predict_proba(X)
+        # XGBoost works in float32, so rows can sum to 1 +/- 1e-7; return float64
+        # rows that sum to 1 exactly (sklearn's log_loss warns otherwise).
+        probs = np.asarray(self.booster_.predict_proba(X), dtype="float64")
+        return probs / probs.sum(axis=1, keepdims=True)
 
     def predict(self, X):
         return self.classes_[np.argmax(self.predict_proba(X), axis=1)]

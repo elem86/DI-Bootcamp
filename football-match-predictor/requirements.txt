@@ -20,3 +20,6 @@ ipykernel>=6.29
 
 # Testing
 pytest>=8.0
+
+# This project itself, in editable mode, so `import src` works everywhere
+-e .

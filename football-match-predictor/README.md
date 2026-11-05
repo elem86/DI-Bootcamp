@@ -48,10 +48,20 @@ In VS Code, choose the `.venv` interpreter (Ctrl+Shift+P → "Python: Select Int
 
 Historical match data comes from [Football-Data.co.uk](https://www.football-data.co.uk/italym.php) (Serie A results and match statistics by season). Raw files are downloaded by the project scripts rather than committed to the repository.
 
+Download every Serie A season (1993-94 to the current season) into `data/raw/`:
+
+```powershell
+python -m src.data_loader                      # all seasons
+python -m src.data_loader --from-season 2005   # 2005-06 onwards only
+python -m src.data_loader --force              # re-download everything
+```
+
+Files are saved as `data/raw/I1_<season>.csv` (e.g. `I1_2425.csv` for 2024-25; `I1` is Football-Data's code for Serie A). Re-running the script skips seasons already downloaded but always refreshes the current season, which is updated after every matchday.
+
 ## Roadmap
 
 - [x] Project structure and environment
-- [ ] Load historical Serie A data
+- [x] Load historical Serie A data
 - [ ] Import and standardise Football-Data CSVs
 - [ ] Clean data and initial exploratory analysis
 - [ ] Engineer historical team performance features

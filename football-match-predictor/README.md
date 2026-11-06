@@ -385,6 +385,7 @@ Streamlit opens the app in your browser (by default at http://localhost:8501).
 - **Comparison charts** show where the models agree and disagree. A simple average of the three can be switched on; it's labelled as unvalidated, because it was never trained or tested as a model of its own.
 - **Collapsible sections** show the fixture's pre-match features and explain the training period, the features, why the models differ, and their limitations.
 - **Historical demo mode** rebuilds any past fixture using only the results known before that day, and shows the actual result. It also warns when the match was part of the models' training data.
+- **Goals & BTTS Analysis**, a separate section beneath the predictions, shows each club's historical goals, Over/Under and BTTS frequencies (see [below](#goals-overunder-and-btts-analysis)).
 
 **How a future fixture gets its features.** `src/predict.py` reuses the existing feature code instead of re-implementing it:
 1. It adds the fixture as one row with no score to the matches completed strictly before its date.
@@ -404,6 +405,44 @@ Because every feature is looked up from an earlier date only, the fixture never 
 - **Latest data date:** the app always shows the date of the latest completed match in the data. Matches played after it aren't reflected in the predictions.
 
 These are statistical estimates, not guarantees or betting recommendations.
+
+## Goals, Over/Under and BTTS analysis
+
+The app's **Goals & BTTS Analysis** section, beneath the match-outcome predictions, describes how many goals each club's own recent Serie A matches produced. `src/goal_stats.py` computes the statistics; the 1X2 models, features and predictions are unchanged.
+
+**For each club:**
+- **Goals:** scored, conceded and total (both clubs) per match.
+- **Scoring:** share of matches in which the club scored, and share of clean sheets.
+- **Over / Under 0.5, 1.5, 2.5 and 3.5 goals:** using the total goals of both clubs in each match.
+- **BTTS Yes / No:** Yes when both clubs scored at least once.
+
+Each percentage is shown with its count and exact denominator, e.g. `7 of 10 (70%)`.
+
+**Historical windows** (a selector in the section):
+
+| Window | Matches used |
+|---|---|
+| Last 5 / 10 / 20 matches | The club's latest matches, home and away |
+| Current season to date | All of the club's matches this season so far |
+| Last 5 / 10 home / away matches | Home matches for the home club, away matches for the away club |
+
+**Rules:**
+- **Time safety:** only matches completed strictly before the fixture date are used. Matches on the same day, the fixture itself and later results are never used, so historical demo mode shows exactly what was known that morning.
+- **Spells, as in the features:** rolling windows run across the summer break within a club's current Serie A spell. *Current season to date* restarts every season.
+- **Promoted and returning clubs** start with no history: Serie B matches are not in the data, and matches from an earlier Serie A spell (often years ago) are not used.
+- **Sample sizes** are shown for both clubs. A short window uses the matches that exist and is flagged (e.g. `3 of 10 matches`). With no matches the statistics are shown as missing, never as 0%.
+- **Not probabilities:** these are descriptive frequencies of past matches. They are not predictions for the fixture, have not been validated as probabilities, and the app keeps them in a separate section from the model predictions.
+
+**Reusable code.** `team_goal_rows` reuses `order_matches` and `team_match_rows` from `src/feature_engineering.py`: one row per club per completed match, with venue, season, spell, goals for and against, and goal-line and BTTS flags. `team_sample` and `fixture_goal_stats` select a window; `goal_statistics` and `total_goals_distribution` summarise it. These are the building blocks for a later goals model (for example Poisson), which is not implemented yet.
+
+`tests/test_goal_stats.py` checks:
+- goal lines, BTTS and averages against hand-calculated matches;
+- home/away filtering, rolling windows and sample sizes;
+- same-day and future-result leakage, and historical fixtures;
+- missing history, promoted and returning clubs, and season boundaries;
+- reproducibility;
+- parity with the saved form features (`form5_gf`, `venue_form5_gf`, `season_gf`, `history_matches`, ...) on synthetic and real data;
+- the app section, including that the predictions it shows are unchanged.
 
 ## Elo rating experiment
 
@@ -473,4 +512,5 @@ The bookmaker's pooled log loss on the same fixtures is 0.9602.
 - [x] Recency weighting experiment
 - [x] Interactive match prediction app
 - [x] Elo rating system and model comparison
+- [x] Goals, Over/Under and BTTS analysis dashboard
 - [ ] Final documentation and presentation

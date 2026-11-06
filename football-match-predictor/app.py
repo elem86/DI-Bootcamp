@@ -18,6 +18,8 @@ import streamlit as st
 
 from src.evaluate import OUTCOME_NAMES, OUTCOMES
 from src.feature_engineering import SIDES, TEAM_FEATURES
+from src.goal_stats import AVERAGES, EVENTS, GOAL_LINES, HISTORY_WINDOWS, fixture_goal_stats, line_key, rate, \
+    team_goal_rows
 from src.predict import (
     FixtureError,
     ModelFilesMissing,
@@ -54,6 +56,12 @@ def load_data() -> pd.DataFrame:
 @st.cache_resource(show_spinner="Loading saved models...")
 def load_models():
     return load_saved_models()
+
+
+@st.cache_data(show_spinner="Preparing goal statistics...")
+def load_goal_rows() -> pd.DataFrame:
+    """One row per club per completed match (src.goal_stats); filtered per fixture."""
+    return team_goal_rows(load_data())
 
 
 @st.cache_data(max_entries=256, show_spinner=False)
@@ -308,6 +316,171 @@ than the others (see notebooks 04, 06 and 07).
 - Promoted clubs have little or no Serie A history, so their features are partly missing.
 - Matches played after the latest data date are not included.
 """)
+
+# ---------------------------------------------------------------- goals & BTTS analysis
+# Historical frequencies only (src/goal_stats.py). Nothing here feeds into, or comes from, the 1X2 models.
+
+st.divider()
+st.header("Goals & BTTS Analysis")
+st.caption(f"How many goals each club's own Serie A matches produced before {date:%d %B %Y}. These are historical "
+           "frequencies, not model predictions: they are not probabilities for this fixture and have not been "
+           "validated as forecasts.")
+
+WINDOW_KEYS = {w.label: w.key for w in HISTORY_WINDOWS.values()}
+window_label = st.segmented_control(
+    "Historical window", list(WINDOW_KEYS), default="Last 10 matches", required=True, key="goal_window",
+    help="Only matches completed before the match date are used. Home / away windows use the home club's home "
+         "matches and the away club's away matches. Windows run across seasons within a club's current Serie A "
+         "spell; promoted and returning clubs start with no history.")
+goals = fixture_goal_stats(load_goal_rows(), home, away, date, WINDOW_KEYS[window_label], window.season_start)
+samples = (goals.home, goals.away)
+TEAM_ORDER = [home, away]
+TEAM_COLORS = {home: "#2a78d6", away: "#eb6834"}  # fixed per club, so a club without data never repaints the other
+with_data = [sample.team for sample in samples if sample.size]
+TEAM_SCALE = alt.Scale(domain=with_data, range=[TEAM_COLORS[team] for team in with_data])
+REST_COLOR = "#d9d8d3"  # the "No" / "Under" part of a split bar
+
+
+def sample_period(sample) -> str:
+    seasons = " and ".join(season_name(s) for s in sample.seasons) if len(sample.seasons) <= 2 else \
+        f"{season_name(sample.seasons[0])} to {season_name(sample.seasons[-1])}"
+    first, last = sample.matches["date"].iloc[0], sample.matches["date"].iloc[-1]
+    return f"{first:%d %b %Y} to {last:%d %b %Y} ({seasons})"
+
+
+st.subheader("Sample size")
+for column, sample in zip(st.columns(2), samples):
+    with column.container(border=True, height="stretch"):
+        st.markdown(f"**{sample.team}** · {sample.venue} team")
+        st.metric(sample.label, sample.sample_text())
+        if sample.size == 0:
+            st.warning(f"{sample.team}: {sample.empty_reason()}. Its statistics are shown as missing, not as 0%.",
+                       icon=":material/block:")
+        else:
+            if not sample.complete:
+                st.badge(f"Short sample: only {sample.size} of {sample.target} matches available",
+                         icon=":material/warning:", color="orange")
+            st.caption(f"Matches from {sample_period(sample)}.")
+smallest = min((sample.size for sample in samples if sample.size), default=0)
+if smallest:
+    st.caption(f"Small samples swing a lot: with {smallest} {'match' if smallest == 1 else 'matches'}, one result "
+               f"moves a percentage by {100 / smallest:.0f} points.")
+
+if not any(sample.size for sample in samples):
+    st.info("Neither club has matches in this window before this date, so there are no goal statistics to show.",
+            icon=":material/info:")
+else:
+    def split_rows(items):
+        """Rows for a split bar: the share of matches with the event (team colour) and without it (grey)."""
+        records = []
+        for sample in samples:
+            stats, n = sample.stats, sample.stats["matches"]
+            if not n:
+                continue
+            for category, key, yes_label, no_label in items:
+                yes = stats[key]
+                records.append({"Team": sample.team, "Category": category, "Share": yes / n, "Rest": (n - yes) / n,
+                                "Yes": f"{yes_label}: {yes} of {n} ({yes / n:.0%})",
+                                "No": f"{no_label}: {n - yes} of {n} ({(n - yes) / n:.0%})"})
+        return pd.DataFrame(records)
+
+    def split_chart(data, categories, title):
+        base = alt.Chart(data).encode(y=alt.Y("Category:N", sort=categories, title=None),
+                                      yOffset=alt.YOffset("Team:N", sort=TEAM_ORDER),
+                                      tooltip=["Team", alt.Tooltip("Yes:N", title="Yes / Over"),
+                                               alt.Tooltip("No:N", title="No / Under")])
+        x_axis = alt.X("Share:Q", scale=alt.Scale(domain=[0, 1]),
+                       axis=alt.Axis(format="%", title="Share of the club's matches", tickCount=5))
+        yes = base.mark_bar(height={"band": 0.85}).encode(
+            x=x_axis, color=alt.Color("Team:N", scale=TEAM_SCALE, legend=alt.Legend(orient="bottom", title=None)))
+        no = base.mark_bar(height={"band": 0.85}, color=REST_COLOR, stroke="#fcfcfb", strokeWidth=2,
+                           cornerRadiusTopRight=4, cornerRadiusBottomRight=4).encode(x="Share:Q", x2=alt.datum(1))
+        yes_text = base.transform_filter("datum.Share >= 0.12").mark_text(
+            align="left", baseline="middle", dx=5, fontSize=11, color="#ffffff", fontWeight="bold").encode(
+            x=alt.datum(0), text=alt.Text("Share:Q", format=".0%"))
+        no_text = base.transform_filter("datum.Rest >= 0.12").mark_text(
+            align="right", baseline="middle", dx=-5, fontSize=11, color="#52514e").encode(
+            x=alt.datum(1), text=alt.Text("Rest:Q", format=".0%"))
+        return (no + yes + yes_text + no_text).properties(height=len(categories) * 60 + 150, title=title)
+
+    GOAL_AXIS = {"goals_for": "Scored", "goals_against": "Conceded", "total_goals": "Total (both clubs)"}
+    averages = pd.DataFrame([
+        {"Team": sample.team, "Statistic": GOAL_AXIS[key], "Value": sample.stats[key],
+         "Sample": sample.sample_text()}
+        for sample in samples if sample.size for key in AVERAGES
+    ])
+    top = max(averages["Value"].max(), 0.5) * 1.18
+    goal_base = alt.Chart(averages).encode(
+        y=alt.Y("Statistic:N", sort=list(GOAL_AXIS.values()), title=None),
+        yOffset=alt.YOffset("Team:N", sort=TEAM_ORDER),
+        x=alt.X("Value:Q", scale=alt.Scale(domain=[0, top]), axis=alt.Axis(title="Goals per match")),
+        tooltip=["Team", "Statistic", alt.Tooltip("Value:Q", format=".2f", title="Goals per match"), "Sample"],
+    )
+    goals_chart = (goal_base.mark_bar(cornerRadiusEnd=4, height={"band": 0.85}).encode(
+        color=alt.Color("Team:N", scale=TEAM_SCALE, legend=alt.Legend(orient="bottom", title=None)))
+        + goal_base.mark_text(align="left", baseline="middle", dx=4, fontSize=11, color="#52514e").encode(
+            text=alt.Text("Value:Q", format=".2f"))
+    ).properties(height=len(AVERAGES) * 60 + 150, title="Goals scored and conceded per match")
+
+    scoring_items = [("Both teams scored", "btts_yes", "BTTS Yes", "BTTS No"),
+                     ("Club scored", "scored", "Scored", "Failed to score"),
+                     ("Clean sheet", "clean_sheet", "Clean sheet", "Conceded")]
+    line_items = [(f"{line:g} goals", line_key(line, "over"), f"Over {line:g}", f"Under {line:g}")
+                  for line in GOAL_LINES]
+    scoring = split_rows(scoring_items)
+
+    left, right = st.columns(2)
+    with left:
+        st.altair_chart(goals_chart, width="stretch",
+                        alt=f"Bar chart of goals scored, conceded and in total per match for {home} and {away}")
+    with right:
+        st.altair_chart(split_chart(scoring, [item[0] for item in scoring_items], "BTTS, scoring and clean sheets"),
+                        width="stretch",
+                        alt=f"Split bars of the share of BTTS, scoring and clean-sheet matches for {home} and {away}")
+
+    left, right = st.columns(2)
+    with left:
+        st.altair_chart(split_chart(split_rows(line_items), [item[0] for item in line_items],
+                                    "Over (colour) / Under (grey) each goal line"),
+                        width="stretch", alt=f"Split bars of the share of matches over and under 0.5, 1.5, 2.5 and "
+                                             f"3.5 total goals for {home} and {away}")
+    with right:
+        def cell(sample, key):
+            stats = sample.stats
+            if not stats["matches"]:
+                return "n/a"
+            if key in AVERAGES:
+                return f"{stats[key]:.2f}"
+            return f"{stats[key]} of {stats['matches']} ({rate(stats, key):.0%})"
+
+        table = pd.DataFrame({
+            "Statistic": list(AVERAGES.values()) + list(EVENTS.values()),
+            f"{home} (home)": [cell(goals.home, k) for k in list(AVERAGES) + list(EVENTS)],
+            f"{away} (away)": [cell(goals.away, k) for k in list(AVERAGES) + list(EVENTS)],
+        })
+        st.dataframe(table, hide_index=True, height="stretch", alt=f"Goal statistics table for {home} and {away}")
+
+    st.caption("Over / Under count the goals of both clubs in each of the club's matches; BTTS Yes means both clubs "
+               "scored at least once. Each percentage is a count divided by that club's number of matches. "
+               "'n/a' means no matches in the window, not 0%.")
+
+    with st.expander("Matches in each sample", icon=":material/list:"):
+        for column, sample in zip(st.columns(2), samples):
+            with column:
+                st.markdown(f"**{sample.team}**: {sample.label.lower()} ({sample.sample_text()})")
+                if sample.size == 0:
+                    st.caption("No matches.")
+                    continue
+                listed = sample.matches.iloc[::-1]
+                st.dataframe(pd.DataFrame({
+                    "Date": listed["date"].dt.strftime("%d %b %Y"),
+                    "Venue": listed["venue"].str.capitalize(),
+                    "Opponent": listed["opponent"],
+                    "Score": listed["goals_for"].astype(str) + "–" + listed["goals_against"].astype(str),
+                    "Total goals": listed["total_goals"],
+                    "BTTS": listed["btts"].map({True: "Yes", False: "No"}),
+                }), hide_index=True, alt=f"{sample.team}'s matches in this window, newest first")
+        st.caption("Score is shown from the club's point of view (its goals first).")
 
 st.info("These are statistical estimates from historical data, not guarantees and not betting recommendations. "
         "Fair odds are simply 1 / probability, without any bookmaker margin.",

@@ -151,7 +151,7 @@ The research tab reads the experiment results in `outputs/`. They are optional: 
 
 ## Getting started (Windows)
 
-Developed and tested with **Python 3.13** on Windows 11. The commands below are for PowerShell, run from the project folder.
+Requires **Python 3.13** or newer (`requires-python` in `pyproject.toml`): the project was developed and tested with Python 3.13 on Windows 11, and CI tests it with Python 3.13 on Ubuntu. Earlier versions are not supported. The commands below are for PowerShell, run from the project folder.
 
 **1. Clone the repository and create a virtual environment.** The project lives in the `football-match-predictor` folder of the `DI-Bootcamp` repository.
 
@@ -159,7 +159,7 @@ Developed and tested with **Python 3.13** on Windows 11. The commands below are 
 git clone https://github.com/elem86/DI-Bootcamp.git
 cd DI-Bootcamp\football-match-predictor
 
-python -m venv .venv
+py -3.13 -m venv .venv              # or: python -m venv .venv, if python is 3.13
 .venv\Scripts\Activate.ps1          # in cmd.exe: .venv\Scripts\activate.bat
 python -m pip install --upgrade pip
 ```
@@ -255,7 +255,7 @@ The research tab of the app uses the results of steps 1, 3, 4, 5 and 6, plus `ou
 
 **Without data:** tests that need downloaded data, saved models or experiment results skip themselves with a reason, so the suite still passes in a fresh clone (413 passed, 17 skipped).
 
-**CI:** a GitHub Actions workflow ([`.github/workflows/football-match-predictor.yml`](../.github/workflows/football-match-predictor.yml) in the `DI-Bootcamp` repository root) runs on every push that touches this folder. It installs `requirements.txt` on Python 3.13 (Ubuntu), runs the test suite and checks that the Streamlit app starts. It never downloads data, trains models or runs backtests.
+**CI:** a GitHub Actions workflow ([`.github/workflows/football-match-predictor.yml`](../.github/workflows/football-match-predictor.yml) in the `DI-Bootcamp` repository root) runs on every push that touches this folder. It installs `requirements.txt` on Python 3.13 (Ubuntu), runs the test suite and checks that the Streamlit app starts. It never downloads data, trains models or runs backtests. GitHub only runs workflows from the repository root, which is why the file sits outside this folder. If the project becomes a standalone repository, move the file to its own `.github/workflows/` folder and remove the monorepo settings described at the top of the file (`paths` filters, `working-directory` and the `cache-dependency-path` prefix).
 
 ## Project structure
 
@@ -276,7 +276,7 @@ football-match-predictor/
 │   ├── goals_model.py, goals_backtest.py, event_models.py, event_backtest.py,
 │   │   scoring_drift.py, scoring_drift_backtest.py         # goals research
 │   └── excel_report.py     #   Excel workbook
-├── tests/                  # pytest suite (one file per module, plus test_app.py and test_repository.py)
+├── tests/                  # pytest suite, including test_app.py (Streamlit AppTest) and test_repository.py
 ├── notebooks/              # 01-11: exploration, models, experiments (committed with outputs)
 ├── outputs/
 │   ├── figures/            # charts from the notebooks (tracked)

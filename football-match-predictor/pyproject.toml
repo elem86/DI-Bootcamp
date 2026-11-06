@@ -6,7 +6,9 @@ build-backend = "setuptools.build_meta"
 name = "football-match-predictor"
 version = "0.1.0"
 description = "Predicting Serie A match outcomes from historical results."
-requires-python = ">=3.11"
+readme = "README.md"
+# The only version the project has been tested with (locally and in CI)
+requires-python = ">=3.13"
 
 # Installing the project in editable mode (`pip install -e .`, done by
 # requirements.txt) makes `src` importable from anywhere: the VS Code Run

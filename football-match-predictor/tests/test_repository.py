@@ -115,6 +115,24 @@ def test_every_imported_package_is_a_declared_requirement():
     assert needed <= declared, f"imported but not in requirements.txt: {sorted(needed - declared)}"
 
 
+def test_python_version_is_consistent():
+    """pyproject.toml, the README, the lock file and CI all name the one tested Python version."""
+    import tomllib
+
+    requires = tomllib.loads((PROJECT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["requires-python"]
+    match = re.fullmatch(r">=(\d+)\.(\d+)", requires)
+    assert match, f"unexpected requires-python: {requires}"
+    major, minor = map(int, match.groups())
+    version = f"{major}.{minor}"
+    assert sys.version_info[:2] >= (major, minor)
+    assert f"Python {version}" in (PROJECT / "README.md").read_text(encoding="utf-8")
+    assert f"Python {version}." in (PROJECT / "requirements-lock.txt").read_text(encoding="utf-8")
+    # The workflow sits at the root of the DI-Bootcamp repository (see the README); skip it if this is not that layout
+    workflow = PROJECT.parent / ".github" / "workflows" / "football-match-predictor.yml"
+    if workflow.exists():
+        assert f'python-version: "{version}"' in workflow.read_text(encoding="utf-8")
+
+
 def test_lock_file_pins_the_same_packages():
     lock = PROJECT / "requirements-lock.txt"
     assert requirement_names(lock) == requirement_names(PROJECT / "requirements.txt")

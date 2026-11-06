@@ -4,6 +4,12 @@
 # experiment results (all git-ignored). Tests that need them skip themselves,
 # and the job never downloads data, trains models or runs backtests: it checks
 # the code, the documentation and that the app starts.
+#
+# Location: GitHub only runs workflows from the repository root, so this file
+# lives in DI-Bootcamp/.github/workflows/. If football-match-predictor becomes
+# a standalone repository, move this file to its .github/workflows/ folder,
+# remove the `paths` filters and the `defaults.run.working-directory` setting,
+# and change cache-dependency-path to requirements.txt.
 name: football-match-predictor
 
 on:

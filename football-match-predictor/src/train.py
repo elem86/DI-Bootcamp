@@ -35,6 +35,7 @@ from sklearn.dummy import DummyClassifier
 from sklearn.pipeline import Pipeline
 
 from src.config import MODELS_DIR, PREDICTIONS_DIR
+from src.elo import ELO_FEATURE_COLUMNS
 from src.evaluate import evaluate, metrics_table, predict_probabilities, results_table
 from src.feature_engineering import FEATURE_COLUMNS, SIDES, TARGET_COLUMN, TARGET_COLUMNS, load_features
 from src.models import C_GRID, MODEL_SPECS, build_logistic_regression
@@ -97,13 +98,18 @@ def chronological_split(
 
 
 def check_feature_columns(columns: list[str]) -> None:
-    """Refuse anything other than the engineered pre-match features."""
+    """Refuse anything other than the engineered pre-match features.
+
+    Allowed: the 50 columns from ``src.feature_engineering`` and the optional
+    pre-match Elo ratings from ``src.elo`` (used only by the Elo experiment;
+    the production feature sets above do not include them).
+    """
     leaking = set(columns) & set(TARGET_COLUMNS)
     if leaking:
         raise ValueError(f"Target columns cannot be used as features: {sorted(leaking)}")
-    unknown = set(columns) - set(FEATURE_COLUMNS)
+    unknown = set(columns) - set(FEATURE_COLUMNS) - set(ELO_FEATURE_COLUMNS)
     if unknown:
-        raise ValueError(f"Not pre-match features from feature_engineering: {sorted(unknown)}")
+        raise ValueError(f"Not pre-match features from feature_engineering or elo: {sorted(unknown)}")
 
 
 def feature_matrix(frame: pd.DataFrame, columns: list[str]) -> pd.DataFrame:
@@ -150,6 +156,7 @@ class Experiment:
     test: dict[str, dict]
     test_results: pd.DataFrame
     seasons: dict = field(default_factory=dict)
+    selected_columns: list[str] = field(default_factory=list)  # columns of the chosen feature set
 
     @property
     def label(self) -> str:
@@ -157,7 +164,8 @@ class Experiment:
 
     @property
     def feature_columns(self) -> list[str]:
-        return FEATURE_SETS[self.feature_set]
+        # Custom feature sets (e.g. the Elo experiment's) are not in FEATURE_SETS
+        return list(self.selected_columns) or FEATURE_SETS[self.feature_set]
 
     @property
     def C(self) -> float | None:
@@ -292,6 +300,7 @@ def run_experiment(
             "final_train": [int(final_train["season_start"].min()), validation_season],
             "test": test_season,
         },
+        selected_columns=list(columns),
     )
 
 

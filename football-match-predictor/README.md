@@ -20,6 +20,7 @@ football-match-predictor/
 │   ├── predictions/    # Saved model predictions (not tracked)
 │   ├── backtest/       # Walk-forward backtest results (not tracked)
 │   ├── recency/        # Recency-weighting experiment results (not tracked)
+│   ├── elo/            # Elo experiment results (not tracked)
 │   └── excel/          # Generated Excel workbook (not tracked)
 ├── .streamlit/         # Streamlit theme and server settings for the app
 ├── app.py              # Interactive match prediction app (streamlit run app.py)
@@ -404,6 +405,59 @@ Because every feature is looked up from an earlier date only, the fixture never 
 
 These are statistical estimates, not guarantees or betting recommendations.
 
+## Elo rating experiment
+
+Do Elo ratings tell the models anything that the existing form, season and previous-season features don't? `src/elo.py` computes leakage-safe ratings, and `src/elo_experiment.py` runs the walk-forward backtest with and without them:
+
+```powershell
+python -m src.elo_experiment     # 3 models x 7 seasons x 2 arms, about 13 minutes
+```
+
+Results are saved to `outputs/elo/` (git-ignored). [notebooks/08_elo_rating_analysis.ipynb](notebooks/08_elo_rating_analysis.ipynb) presents the ratings and the comparison (it loads the saved run, or runs it if missing).
+
+**The rating update.** `E_home = 1 / (1 + 10 ** ((R_away − R_home − 60) / 400))`; then `R_home += K × (S_home − E_home)` and `R_away −= K × (S_home − E_home)`, with `S_home` = 1 for a win, 0.5 for a draw, 0 for a loss.
+
+| Setting | Value |
+|---|---|
+| Initial rating (every club in 1993-94; league average) | 1500 |
+| K-factor | 20 |
+| Home advantage | 60 Elo points |
+| Summer regression | 30% toward 1500 |
+
+These are predetermined experimental defaults. They were fixed before the experiment and never tuned.
+
+**Policies:**
+- **No leakage:** matches are processed one calendar date at a time. Every match of a date gets its pre-match ratings from results strictly before that date, and only then are that date's results applied.
+- **Promoted clubs:** no Serie B results are invented. A promoted club enters at the mean rating of the clubs that left the league that summer, so the league average stays at 1500.
+- **Returning clubs:** a club coming back after relegation does not keep its old rating; it enters like any promoted club.
+- **Features:** `home_elo`, `away_elo` and `elo_difference` are added as extra columns. The 50 original features, the saved production models and the app are unchanged.
+- **Expected score:** `home_elo_expected` (`E_home`) is kept for analysis only. It is an expected score in which a draw counts as half a win, not the probability of a home win.
+
+**The experiment:**
+- **Control:** the existing `all` and `compact` feature sets.
+- **Elo:** the same sets plus the three Elo columns.
+- **Identical procedure:** both arms run the commit-10 fold procedure (past-only choice of feature set and hyperparameters, then refit) for Logistic Regression, Random Forest and XGBoost.
+- **Identical fixtures:** both arms are scored on the same 2,657 fixtures.
+- **Untouched:** 2025-26 and 2026-27 are excluded.
+- **Reproducibility check:** the control arm reproduces the commit-10 backtest exactly.
+- **Decision rule, written before the run:** recommend Elo for a model only if (1) its Bonferroni-adjusted paired bootstrap interval for the pooled log-loss difference is below 0, (2) it improves at least 5 of 7 seasons, and (3) the gain survives leaving out any one season.
+
+| Model | Pooled log loss: control → Elo | Difference (95% interval) | Seasons better | Accuracy change |
+|---|---|---|---|---|
+| Logistic Regression | 0.9834 → 0.9818 | −0.0016 (−0.0042 to +0.0009) | 6 of 7 | +0.11 pts |
+| Random Forest | 0.9829 → 0.9790 | −0.0039 (−0.0072 to −0.0007) | 5 of 7 | +0.08 pts |
+| XGBoost | 0.9808 → 0.9794 | −0.0014 (−0.0053 to +0.0024) | 4 of 7 | −0.23 pts |
+
+The bookmaker's pooled log loss on the same fixtures is 0.9602.
+
+**Results:**
+- **Probability quality:** log loss and Brier score are slightly lower with Elo for all three models, and every leave-one-season-out difference stays negative.
+- **Accuracy and macro F1** do not improve.
+- **Not confirmed after correction:** after the Bonferroni correction for three models, no interval excludes 0 (Random Forest's upper end is +0.0001). Sign tests across seasons give p ≥ 0.125.
+- **No promoted-club benefit:** the gain is not concentrated in the 756 fixtures with a promoted club.
+- **Why the effect is small:** the Elo gap has a rank correlation of 0.87 with the previous-season points gap, so it mostly repeats information the models already have.
+- **Recommendation:** do not add Elo to the production models yet; no model meets the pre-specified rule. Keep Random Forest + Elo with frozen settings as the leading candidate, to confirm on a season this experiment has not used. Any tuning of the Elo settings must happen inside past-only nested validation.
+
 ## Roadmap
 
 - [x] Project structure and environment
@@ -418,4 +472,5 @@ These are statistical estimates, not guarantees or betting recommendations.
 - [x] Historical walk-forward backtesting
 - [x] Recency weighting experiment
 - [x] Interactive match prediction app
+- [x] Elo rating system and model comparison
 - [ ] Final documentation and presentation

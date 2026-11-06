@@ -47,3 +47,7 @@ outputs/excel/*
 
 # Excel lock files
 ~$*.xlsx
+
+# Elo experiment results (python -m src.elo_experiment)
+outputs/elo/*
+!outputs/elo/.gitkeep

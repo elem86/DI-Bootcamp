@@ -51,3 +51,7 @@ outputs/excel/*
 # Elo experiment results (python -m src.elo_experiment)
 outputs/elo/*
 !outputs/elo/.gitkeep
+
+# Goals model experiment results (python -m src.goals_backtest)
+outputs/goals/*
+!outputs/goals/.gitkeep

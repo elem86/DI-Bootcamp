@@ -21,6 +21,7 @@ football-match-predictor/
 │   ├── backtest/       # Walk-forward backtest results (not tracked)
 │   ├── recency/        # Recency-weighting experiment results (not tracked)
 │   ├── elo/            # Elo experiment results (not tracked)
+│   ├── goals/          # Poisson goals-model experiment results (not tracked)
 │   └── excel/          # Generated Excel workbook (not tracked)
 ├── .streamlit/         # Streamlit theme and server settings for the app
 ├── app.py              # Interactive match prediction app (streamlit run app.py)
@@ -433,7 +434,7 @@ Each percentage is shown with its count and exact denominator, e.g. `7 of 10 (70
 - **Sample sizes** are shown for both clubs. A short window uses the matches that exist and is flagged (e.g. `3 of 10 matches`). With no matches the statistics are shown as missing, never as 0%.
 - **Not probabilities:** these are descriptive frequencies of past matches. They are not predictions for the fixture, have not been validated as probabilities, and the app keeps them in a separate section from the model predictions.
 
-**Reusable code.** `team_goal_rows` reuses `order_matches` and `team_match_rows` from `src/feature_engineering.py`: one row per club per completed match, with venue, season, spell, goals for and against, and goal-line and BTTS flags. `team_sample` and `fixture_goal_stats` select a window; `goal_statistics` and `total_goals_distribution` summarise it. These are the building blocks for a later goals model (for example Poisson), which is not implemented yet.
+**Reusable code.** `team_goal_rows` reuses `order_matches` and `team_match_rows` from `src/feature_engineering.py`: one row per club per completed match, with venue, season, spell, goals for and against, and goal-line and BTTS flags. `team_sample` and `fixture_goal_stats` select a window; `goal_statistics` and `total_goals_distribution` summarise it. The Poisson goals model below reuses `team_goal_rows` for its club histories.
 
 `tests/test_goal_stats.py` checks:
 - goal lines, BTTS and averages against hand-calculated matches;
@@ -497,6 +498,90 @@ The bookmaker's pooled log loss on the same fixtures is 0.9602.
 - **Why the effect is small:** the Elo gap has a rank correlation of 0.87 with the previous-season points gap, so it mostly repeats information the models already have.
 - **Recommendation:** do not add Elo to the production models yet; no model meets the pre-specified rule. Keep Random Forest + Elo with frozen settings as the leading candidate, to confirm on a season this experiment has not used. Any tuning of the Elo settings must happen inside past-only nested validation.
 
+## Poisson goals model
+
+Can we forecast *how many goals* a match will have? `src/goals_model.py` turns two expected-goals rates per fixture into goal-market probabilities, and `src/goals_backtest.py` evaluates three ways of producing those rates with the same walk-forward scheme as the 1X2 backtest:
+
+```powershell
+python -m src.goals_backtest     # 7 seasons x 3 methods, about 1 minute
+```
+
+Results are saved to `outputs/goals/` (git-ignored). [notebooks/09_goals_prediction_analysis.ipynb](notebooks/09_goals_prediction_analysis.ipynb) presents the theory, the backtest, calibration, uncertainty and the recommendation (figures 45-56). The app, production models, saved predictions and features are unchanged.
+
+**Probabilities from two rates.** The home side scores `Poisson(lambda_home)` goals and the away side `Poisson(lambda_away)`, independently. Then:
+- **Over/Under:** total goals are `Poisson(lambda_home + lambda_away)`, so `P(Under x.5)` is the exact Poisson CDF at `x` and `P(Over x.5) = 1 - P(Under x.5)` (lines 0.5, 1.5, 2.5 and 3.5).
+- **BTTS:** `P(BTTS Yes) = (1 - exp(-lambda_home)) * (1 - exp(-lambda_away))`; `P(No) = 1 - P(Yes)`.
+- **Exact scores and 1X2** (1X2 for evaluation only): from a score grid that grows until less than `1e-12` of the probability lies outside it. That truncated mass is reported, and rates so large that more than `1e-9` would be lost are refused instead of being silently cut.
+
+**Three methods, scored on the same fixtures:**
+
+| Method | Rates come from |
+|---|---|
+| League average | mean home and away goals of the training seasons |
+| Team attack/defence | each club's goals scored and conceded over its last N Serie A matches (strictly earlier dates, current spell only), shrunk toward the league average, times home/away league means |
+| Poisson regression | two L2-regularised `PoissonRegressor`s (home goals, away goals) on the existing engineered features; no Elo |
+
+**Walk-forward evaluation (2018-19 to 2024-25):**
+- **Past-only choices:** for evaluation season S, every setting is chosen by fitting on seasons up to S-2 and scoring Poisson deviance on S-1:
+  - for each regression, the feature set (`goals` 30, `compact` 22 or `all` 50) and the penalty;
+  - for the team baseline, the window and the prior.
+- **Refit and score:** the chosen settings are refitted on seasons up to S-1 and scored on S. All three methods predict the same 2,660 fixtures.
+- **Untouched seasons:** 2025-26 and 2026-27 are refused by the code.
+- **Leakage rules:** the same as the 1X2 models; club histories and features use strictly earlier dates only.
+- **Market benchmark:** market-average Over/Under 2.5 odds (`BbAv` in 2018-19, `Avg` from 2019-20) are read from the raw files already on disk, with the margin removed. They cover 2,658 of the 2,660 fixtures. They are a benchmark only, never a feature. There are no BTTS or other-line odds in the data.
+- **Decision rule, written before the run:** the model is ready for the app only if:
+  1. it beats the league average on the three primary scores (deviance, Over/Under 2.5 log loss, BTTS log loss), with Bonferroni-adjusted intervals below 0;
+  2. it does so in at least 5 of 7 seasons;
+  3. it is at least as good as the team baseline;
+  4. it is calibrated: every event within 2 points of the observed share, and at most 1 of 10 reliability bins outside its 95% interval.
+
+**Pooled results (2,660 fixtures):**
+
+| | League average | Team attack/defence | Poisson regression | Market |
+|---|---|---|---|---|
+| Poisson deviance (home + away) | 2.394 | 2.170 | **2.147** | - |
+| Over 2.5 log loss | 0.6945 | 0.6918 | 0.6912 | **0.6786** |
+| BTTS log loss | **0.6892** | 0.6895 | 0.6900 | - |
+| Mean BTTS probability (observed 55.3%) | 52.8% | 52.5% | 51.5% | - |
+| Mean total goals (observed 2.77) | 2.65 | 2.80 | 2.76 | - |
+
+**Findings:**
+- **Expected goals: clear skill.** The Poisson regression is 10.3% better than the league average on deviance:
+  - this holds in all 7 seasons, with an adjusted interval of −0.308 to −0.191;
+  - against the team baseline it is 1.1% better and wins 6 of 7 seasons, but the adjusted interval includes 0.
+- **Over/Under and BTTS: no demonstrated skill.**
+  - None of the 20 probability comparisons with the baselines excludes 0, even before adjustment.
+  - Over 2.5 log loss is only 0.5% better than the league average, and that gain comes mostly from the high-scoring 2019-20 and 2020-21 seasons.
+  - The market's Over/Under 2.5 is better by 0.0126 (95% interval 0.0078 to 0.0175).
+- **Calibration and bias:**
+  - **Too extreme:** the probabilities spread too much (calibration slopes 0.46 to 0.62).
+  - **Draws:** under-predicted by 3.2 points; 1-1 and 2-2 happen more often than the model expects.
+  - **BTTS:** under-predicted by 3.8 points.
+  - **Home wins:** over-predicted by 3.5 points; home advantage was larger in older training seasons.
+  - **Goal counts:** high-scoring games and 0-0 are predicted accurately, and goals are not over-dispersed relative to the model.
+- **Recommendation: not ready for the app.**
+  - **Rule:** it fails all four criteria of the pre-specified rule.
+  - **App:** keep the historical frequencies of the goals dashboard.
+  - **Next experiments, each with its own pre-specified rule:**
+    - recency weighting or a time trend for scoring level and home advantage;
+    - recalibration fitted on earlier seasons;
+    - Dixon-Coles or bivariate Poisson for the draw and BTTS deficit.
+
+**Assumptions and limitations:**
+- **Independence:** home and away goals are assumed independent given the rates (a small positive residual dependence remains).
+- **Draws:** draws and low-scoring results other than 0-0 are under-represented.
+- **Variance:** it is not exceeded here; the issue is forecasts that vary too much.
+- **Missing information:** lineups, injuries and team news are not available, which is the likely reason the market is better.
+- **Promoted clubs:** they start with no Serie A history, although their fixtures were not forecast worse.
+
+`tests/test_goals_model.py` checks:
+- exact Over/Under and BTTS formulas, normalisation and complementary pairs, and 1X2 against the Skellam distribution;
+- zero and very large expected goals, grid truncation, and historical score probabilities;
+- same-day and future-result leakage, chronological training boundaries and holdout protection;
+- promoted and returning clubs, and missing history;
+- identical fixtures across methods, reproducibility and row-order independence;
+- pooled metrics, bootstrap intervals, calibration tables and the market-odds reader.
+
 ## Roadmap
 
 - [x] Project structure and environment
@@ -513,4 +598,5 @@ The bookmaker's pooled log loss on the same fixtures is 0.9602.
 - [x] Interactive match prediction app
 - [x] Elo rating system and model comparison
 - [x] Goals, Over/Under and BTTS analysis dashboard
+- [x] Poisson goals prediction and walk-forward evaluation
 - [ ] Final documentation and presentation

@@ -59,3 +59,5 @@ outputs/goals/*
 # Direct Over/Under and BTTS experiment results (python -m src.event_backtest)
 outputs/events/*
 !outputs/events/.gitkeep
+outputs/scoring_drift/*
+!outputs/scoring_drift/.gitkeep

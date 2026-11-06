@@ -23,6 +23,7 @@ football-match-predictor/
 │   ├── elo/            # Elo experiment results (not tracked)
 │   ├── goals/          # Poisson goals-model experiment results (not tracked)
 │   ├── events/         # Direct Over/Under and BTTS experiment results (not tracked)
+│   ├── scoring_drift/  # Adaptive scoring-rate experiment results (not tracked)
 │   └── excel/          # Generated Excel workbook (not tracked)
 ├── .streamlit/         # Streamlit theme and server settings for the app
 ├── app.py              # Interactive match prediction app (streamlit run app.py)
@@ -658,6 +659,79 @@ The market-average Over 2.5 odds score 0.6786 on the same fixtures (context only
 - identical fixtures, equality with the commit-15 forecasts and reproducibility;
 - pooled metrics, the 8-comparison decision family and the rule.
 
+## Adaptive scoring rates experiment
+
+Commits 15 and 16 found that season-to-season drift in scoring is the largest source of error in the goals forecasts. This experiment tests whether following the most recent completed league results helps. `src/scoring_drift.py` defines the two adaptive methods, and `src/scoring_drift_backtest.py` compares them with every existing method:
+
+```powershell
+python -m src.scoring_drift_backtest     # needs outputs/goals/ and outputs/events/; about 10 seconds
+```
+
+Nothing that already exists is refitted. The six existing methods are read from `outputs/events/`, and the Poisson regression's expected goals from `outputs/goals/`. Both are checked against each other and against the training seasons, and neither folder is written to. Results go to `outputs/scoring_drift/` (git-ignored). [notebooks/11_scoring_drift_analysis.ipynb](notebooks/11_scoring_drift_analysis.ipynb) presents the drift, the adaptive forecasts, results, calibration, drift diagnostics, uncertainty and the decision (figures 64-71). The app and production models are unchanged.
+
+**Candidates.** Both use a window of the last **200 completed matches** and **200 pseudo-matches** of shrinkage toward history. Both settings were fixed in advance and never tuned:
+
+| Method | What it is |
+|---|---|
+| Adaptive event frequency | `(events in window + 200 × static frequency) / (matches in window + 200)` for each Over line and BTTS |
+| Adaptive Poisson regression | the commit-15 Poisson regression's home and away expected goals, each multiplied by `shrunk recent mean / training mean`; Over/Under and BTTS recomputed with the Poisson formulas (unadjusted when the window is empty) |
+
+**Chronology:**
+- **Model fitting:** the static frequencies, training mean goals and Poisson regression use only seasons up to S-1.
+- **Online statistic:** for a fixture on date D, the window holds matches dated **strictly before D**. It may include earlier fixtures of season S, as a forecaster would have them, but never the fixture itself, other fixtures on the same date or later results.
+- **Excluded seasons:** 2025-26 and 2026-27 are removed before any window is built.
+
+**Decision rule, written before the run.** Over 2.5 and BTTS log loss are judged separately. A candidate is ready for an event only if:
+1. it beats the static event frequency with a Bonferroni-adjusted interval below 0 (8 comparisons);
+2. it is not worse than the strongest existing model for that event;
+3. it beats the static frequency in at least 5 of 7 seasons;
+4. it still beats the static frequency when any one season is left out;
+5. its calibration slope is between 0.8 and 1.2, its mean is within 2 points of the observed share, and at most 1 of 10 reliability bins is outside its 95% interval.
+
+These seasons have already shaped earlier decisions and this hypothesis, so the results are exploratory, not independent confirmation.
+
+**Pooled log loss (2018-19 to 2024-25, same 2,660 fixtures):**
+
+| | Static frequency | Poisson regression | Direct logistic | Recalibrated Poisson | Adaptive frequency | Adaptive Poisson |
+|---|---|---|---|---|---|---|
+| Over 2.5 | 0.6947 | 0.6912 | 0.6926 | 0.6908 | 0.6887 | **0.6886** |
+| BTTS | 0.6893 | 0.6900 | 0.6877 | 0.6890 | **0.6863** | 0.6865 |
+| Over 1.5 | 0.5380 | 0.5347 | 0.5372 | 0.5355 | 0.5340 | **0.5322** |
+| Over 3.5 | 0.6094 | 0.6090 | **0.6059** | 0.6085 | 0.6066 | 0.6083 |
+
+The market-average Over 2.5 odds score 0.6786 on the same fixtures (context only).
+
+**Results by candidate and event:**
+
+| Candidate | Event | vs static (Bonferroni interval) | vs strongest existing | Seasons better | Calibration slope | Ready |
+|---|---|---|---|---|---|---|
+| Adaptive frequency | Over 2.5 | −0.0060 (−0.0099 to −0.0023) | −0.0021 | 6 of 7 | 1.44 | No (calibration) |
+| Adaptive frequency | BTTS | −0.0030 (−0.0060 to +0.0001) | −0.0014 | 4 of 7 | 1.20 | No |
+| Adaptive Poisson | Over 2.5 | −0.0061 (−0.0152 to +0.0029) | −0.0021 | 3 of 7 | 0.63 | No |
+| Adaptive Poisson | BTTS | −0.0028 (−0.0080 to +0.0021) | −0.0011 | 4 of 7 | 0.73 | No |
+
+**Findings:**
+- **Over 2.5:** the adaptive frequency passes four of five criteria. It is the only comparison in the decision family whose adjusted interval excludes zero, it wins 6 of 7 seasons, and it survives leaving out any season. It fails calibration: a slope of 1.44 means it is *too timid*, moving in the right direction but by too little.
+- **BTTS:** the adaptive frequency is best and well calibrated, but its interval reaches +0.0001 and it wins only 4 of 7 seasons.
+- **Adaptive Poisson:** it is noisier, and its gains rest on 2019-20. Still, as an exploratory finding, it beats the plain Poisson regression on BTTS (−0.0034, 6 of 7 seasons, adjusted interval below 0).
+- **No candidate is shown to beat the strongest existing model.** All intervals include zero.
+- **Season bias:** the adaptive methods cut the average absolute season bias, from 5.3 points (static) to 3.0 on Over 2.5 and from 3.9 to 2.3 on BTTS. Unlike the recalibration, they did not break down when scoring fell in 2022-23.
+- **Drift diagnostics:**
+  - Model errors persist only weakly from block to block (correlations 0.10 to 0.32).
+  - The adjustment follows the errors more than it anticipates them: it caught half of the 2019-20 burst and overshot in 2021-22.
+  - Most of the gain is already there in the first half of each season. It comes from using recent seasons' level, especially the higher away scoring, instead of the 1993-onward average, more than from updating within the season.
+- **Decision: no candidate is ready for either event.** Nothing goes into the app, and the settings stay as fixed: the Over 2.5 slope suggests less shrinkage would fit better, but choosing that now would tune on these seasons. A fair test would apply the adaptive frequency, with these exact settings, to seasons not yet used.
+
+`tests/test_scoring_drift.py` checks:
+- that the window holds exactly the last matches before each date;
+- that same-day and later scores never change a forecast, while earlier fixtures of the season do;
+- that 2025-26 and later never enter the history;
+- the shrinkage formulas and the division-by-zero and empty-window guards, and that invalid expected goals are refused;
+- that the Poisson formulas are reused and Over probabilities stay monotone;
+- that training uses only earlier seasons and every method predicts identical fixtures;
+- that existing forecasts are passed through unchanged and inconsistent inputs are refused;
+- reproducibility, the 8-comparison decision rule, the diagnostics, and saving and loading.
+
 ## Roadmap
 
 - [x] Project structure and environment
@@ -676,4 +750,5 @@ The market-average Over 2.5 odds score 0.6786 on the same fixtures (context only
 - [x] Goals, Over/Under and BTTS analysis dashboard
 - [x] Poisson goals prediction and walk-forward evaluation
 - [x] Direct Over/Under and BTTS prediction experiment
+- [x] Adaptive scoring rates experiment
 - [ ] Final documentation and presentation

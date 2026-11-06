@@ -22,6 +22,7 @@ football-match-predictor/
 │   ├── recency/        # Recency-weighting experiment results (not tracked)
 │   ├── elo/            # Elo experiment results (not tracked)
 │   ├── goals/          # Poisson goals-model experiment results (not tracked)
+│   ├── events/         # Direct Over/Under and BTTS experiment results (not tracked)
 │   └── excel/          # Generated Excel workbook (not tracked)
 ├── .streamlit/         # Streamlit theme and server settings for the app
 ├── app.py              # Interactive match prediction app (streamlit run app.py)
@@ -582,6 +583,81 @@ Results are saved to `outputs/goals/` (git-ignored). [notebooks/09_goals_predict
 - identical fixtures across methods, reproducibility and row-order independence;
 - pooled metrics, bootstrap intervals, calibration tables and the market-odds reader.
 
+## Direct Over/Under and BTTS experiment
+
+Can models trained *directly* on each yes/no event beat the Poisson-derived probabilities of commit 15? `src/event_models.py` defines the direct classifiers, the event-frequency baseline, the consistency correction and a logistic calibrator; `src/event_backtest.py` runs the walk-forward comparison:
+
+```powershell
+python -m src.event_backtest     # 7 seasons, 6 methods, about 4 minutes
+```
+
+Results are saved to `outputs/events/` (git-ignored). [notebooks/10_event_prediction_analysis.ipynb](notebooks/10_event_prediction_analysis.ipynb) presents base rates, model choices, consistency, results, calibration, the recalibration experiment, uncertainty and the decision (figures 57-63). The app, production models, saved predictions, the Elo experiment and `outputs/goals/` are unchanged; the commit-15 Poisson forecasts are recomputed with the same code and match the saved run exactly.
+
+**Events.** `over_0_5` ... `over_3_5` mean total goals above the line, so 3 or more goals is Over 2.5. `btts_yes` means both teams scored.
+
+**Methods, scored on the same 2,660 fixtures:**
+
+| Method | What it is |
+|---|---|
+| Event frequency | training-season share of the event, Jeffreys-smoothed `(k + 0.5) / (n + 1)` |
+| League average, Team attack/defence, Poisson regression | the three commit-15 Poisson forecasts |
+| Direct logistic | one regularised Logistic Regression per event (`build_logistic_regression`) on the existing features; feature set (`goals`, `compact`, `all`) and `C` chosen per event |
+| Poisson regression, recalibrated | separate experiment: `sigmoid(a + b * logit(p))` on the Poisson regression's probabilities |
+
+**Chronology:**
+- **Walk-forward folds (season S):** fit on seasons up to S-2, choose on S-1 by log loss, refit on seasons up to S-1, evaluate on S. The event frequencies use the same seasons.
+- **Calibration:** each season's calibrator is fitted on the Poisson regression's out-of-sample walk-forward predictions for S-3, S-2 and S-1. Each of those came from a fold that never saw the season it predicted, and S itself is never used. The base model is refitted every season, so the calibrator assumes recent errors repeat. The 3-season window was fixed in advance.
+- **Excluded seasons:** 2025-26 and 2026-27 are refused.
+
+**Probability consistency.** Over probabilities must not increase with the line:
+- **Correction:** fixtures where the separately trained classifiers or calibrators break this get the closest non-increasing sequence (isotonic regression with pool-adjacent-violators). The correction is deterministic, and ordered fixtures are untouched.
+- **Under:** always `1 - Over`.
+- **BTTS:** predicted on its own. The direct models do not form an exact-score distribution.
+- **In practice:** no fixture crossed (0 of 2,660 for both candidates), so the correction changed nothing. The direct models came within 0.35 points of crossing.
+
+**Decision rule, written before the run.** The primary metrics are Over 2.5 and BTTS log loss, judged separately. A candidate (direct logistic or recalibrated Poisson) is ready for an event only if:
+1. it beats the event frequency with a Bonferroni-adjusted interval below 0 (8 comparisons: 2 candidates × 2 events × 2 comparators);
+2. it is not worse than the best of the three Poisson methods for that event;
+3. it beats the event frequency in at least 5 of 7 seasons and when any one season is left out;
+4. its mean is within 2 points of the observed share, its calibration slope is between 0.8 and 1.2, and at most 1 of 10 reliability bins is outside its 95% interval.
+
+**Pooled log loss (2018-19 to 2024-25):**
+
+| | Event frequency | League average | Team attack/defence | Poisson regression | Direct logistic | Recalibrated |
+|---|---|---|---|---|---|---|
+| Over 2.5 | 0.6947 | 0.6945 | 0.6918 | 0.6912 | 0.6926 | **0.6908** |
+| BTTS | 0.6893 | 0.6892 | 0.6895 | 0.6900 | **0.6877** | 0.6890 |
+| Over 3.5 | 0.6094 | 0.6099 | 0.6089 | 0.6090 | **0.6059** | 0.6085 |
+
+The market-average Over 2.5 odds score 0.6786 on the same fixtures (context only).
+
+**Findings:**
+- **Over 2.5:** the best method is the recalibrated Poisson regression. It is 0.0039 better than the event frequency (95% interval −0.0092 to +0.0013) and 0.0004 better than the Poisson regression. The direct logistic is *worse* than the Poisson regression.
+- **BTTS:** the best method is the direct logistic. It is 0.0017 better than the event frequency (−0.0046 to +0.0014) and 0.0016 better than the best Poisson method (league average).
+- **Uncertainty:** none of the 8 decision comparisons, and none of 32 secondary ones, excludes zero even before adjustment. The candidates' gains over the event frequency rest on the high-scoring 2019-20 season: leaving it out removes them.
+- **Calibration:** every method is too extreme, with calibration slopes of 0.27 to 0.61 on the primary events. Recalibration fixes the averages (BTTS goes from −3.8 to +0.4 points) but not the spread, and it was hurt in 2022-23 when scoring fell after the high-scoring seasons it learned from.
+- **Decision: neither event is ready, for either candidate.** No probabilities from this experiment go into the app.
+- **What it shows:** the pre-match features say very little about goal totals or BTTS beyond the base rate, and season-level drift in scoring is the largest source of error.
+
+**Limitations:**
+- **Sample size:** 2,660 fixtures cannot resolve differences of a few thousandths of a log-loss unit.
+- **Noisy tuning:** settings are chosen on a single season each.
+- **Calibration slopes:** pooled slopes mix fixture-level spread with season-level shifts.
+- **Fixed calibration window:** it is 3 seasons and was not tuned.
+- **No joint distribution:** the direct models give separate event probabilities only.
+- **Missing information:** lineups and team news are not available.
+
+`tests/test_event_models.py` checks:
+- goal thresholds and BTTS;
+- the smoothed event frequency;
+- the monotone correction (examples, equality with isotonic regression, idempotence, Under complements);
+- probability validity and the classifiers' fallback when training has only one outcome;
+- the calibrator, including recovering a known distortion;
+- calibration leakage: only earlier out-of-sample seasons are used, and the season being calibrated is refused;
+- same-day and future-result leakage, chronological folds and holdout protection;
+- identical fixtures, equality with the commit-15 forecasts and reproducibility;
+- pooled metrics, the 8-comparison decision family and the rule.
+
 ## Roadmap
 
 - [x] Project structure and environment
@@ -599,4 +675,5 @@ Results are saved to `outputs/goals/` (git-ignored). [notebooks/09_goals_predict
 - [x] Elo rating system and model comparison
 - [x] Goals, Over/Under and BTTS analysis dashboard
 - [x] Poisson goals prediction and walk-forward evaluation
+- [x] Direct Over/Under and BTTS prediction experiment
 - [ ] Final documentation and presentation

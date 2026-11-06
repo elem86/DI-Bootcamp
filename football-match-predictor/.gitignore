@@ -55,3 +55,7 @@ outputs/elo/*
 # Goals model experiment results (python -m src.goals_backtest)
 outputs/goals/*
 !outputs/goals/.gitkeep
+
+# Direct Over/Under and BTTS experiment results (python -m src.event_backtest)
+outputs/events/*
+!outputs/events/.gitkeep

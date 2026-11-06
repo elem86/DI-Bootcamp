@@ -25,6 +25,7 @@ football-match-predictor/
 │   ├── events/         # Direct Over/Under and BTTS experiment results (not tracked)
 │   ├── scoring_drift/  # Adaptive scoring-rate experiment results (not tracked)
 │   └── excel/          # Generated Excel workbook (not tracked)
+├── docs/screenshots/   # App screenshots used in this README
 ├── .streamlit/         # Streamlit theme and server settings for the app
 ├── app.py              # Interactive match prediction app (streamlit run app.py)
 ├── requirements.txt
@@ -364,7 +365,7 @@ Two kinds of uncertainty are reported:
 
 ## Interactive prediction app
 
-A Streamlit app that predicts any Serie A fixture of the current season with the three saved models:
+A Streamlit app that predicts any Serie A fixture of the current season with the three saved models, shows each club's goals history, and explains what the research found:
 
 ```powershell
 # 1. Install the dependencies (includes Streamlit)
@@ -380,15 +381,42 @@ python -m src.train                  # outputs/models/*.joblib
 streamlit run app.py
 ```
 
-Streamlit opens the app in your browser (by default at http://localhost:8501).
+Streamlit opens the app in your browser (by default at http://localhost:8501). The research tab also reads the saved experiment results in `outputs/` (all git-ignored). In a fresh clone they won't exist until you run the experiment scripts (`python -m src.backtest`, `src.elo_experiment`, `src.goals_backtest`, `src.event_backtest`, `src.scoring_drift_backtest`). Until then, each research section explains which command creates its file, and the rest of the app works normally. The app never retrains a model or reruns an experiment.
 
-**Using it.** Choose a home team, an away team and a match date in the sidebar.
+**Using it.** Choose a home team, an away team and a match date in the sidebar. The app has three tabs, which keep model output, descriptive history and research evidence apart:
+
+| Tab | What it shows | What it is |
+|---|---|---|
+| **Match predictions** | Each saved model's home/draw/away probabilities, most likely outcome and fair odds; a stacked bar per model; a chart of where the models disagree | **Model output** from the three saved 1X2 models |
+| **Goals & BTTS history** | Each club's recent goals per match, Over/Under, BTTS, scoring and clean-sheet shares, with sample sizes and the matches behind them | **Descriptive history**, not forecasts |
+| **Research & methodology** | Walk-forward results against the bookmaker, the Elo and goals-model experiments, the documented decisions, the saved models' recent scores and the limitations | **Evidence** read from the saved results |
+
+![Match predictions tab](docs/screenshots/app_predictions.png)
+
 - **Clubs:** the clubs are read from the current season's matches in the data, not hardcoded, and a club can't be picked to play itself.
-- **For each model**, the app shows the home win, draw and away win probabilities, the most likely outcome, and fair decimal odds (`1 / probability`, no bookmaker margin).
-- **Comparison charts** show where the models agree and disagree. A simple average of the three can be switched on; it's labelled as unvalidated, because it was never trained or tested as a model of its own.
-- **Collapsible sections** show the fixture's pre-match features and explain the training period, the features, why the models differ, and their limitations.
-- **Historical demo mode** rebuilds any past fixture using only the results known before that day, and shows the actual result. It also warns when the match was part of the models' training data.
-- **Goals & BTTS Analysis**, a separate section beneath the predictions, shows each club's historical goals, Over/Under and BTTS frequencies (see [below](#goals-overunder-and-btts-analysis)).
+- **No fixture list:** the app doesn't check the official calendar. Any two clubs and any date left in the season can be chosen, and the fixture is labelled "chosen by you".
+- **Model comparison:**
+  - each model's split of home/draw/away is one full-width stacked bar;
+  - a dot plot shows how far apart the models are for each outcome;
+  - a simple average of the three can be switched on. It's labelled as unvalidated, because it was never trained or tested as a model of its own.
+- **Data freshness:**
+  - the sidebar always shows the latest completed match and how many days ago it was;
+  - a **Stale match data** warning appears when that is more than 10 days ago, or when the chosen fixture is more than 10 days after the latest data, because results in between can't be reflected.
+- **Historical demo mode** rebuilds any past fixture using only the results known before that day, and shows the actual result. When the season was part of the models' training data (1993-94 to 2025-26), it warns that this is a demonstration, not a genuine out-of-sample forecast.
+- **Collapsible sections** show the fixture's pre-match features and explain the training period, the features, why the models differ and their limitations.
+
+![Goals & BTTS history tab](docs/screenshots/app_goals.png)
+
+**Goals & BTTS history** shows historical frequencies only (see [below](#goals-overunder-and-btts-analysis)). None of the goals models tested in commits 15 to 17 met its pre-specified readiness rule, so the app shows **no** Over/Under or BTTS forecast, and the tab says so.
+
+![Research & methodology tab](docs/screenshots/app_research.png)
+
+**Research & methodology** recomputes its tables from the saved result files, so they always match the experiments. The decisions and their reasons are fixed text (`src/app_support.py`):
+- **Similar models:** the three 1X2 models perform about the same.
+- **Bookmaker:** its implied probabilities beat all three models in the walk-forward backtest.
+- **Elo:** small improvements, but no robust extra predictive skill, so it isn't used.
+- **Goals models:** several estimate expected goals better than the league average, but none met the readiness rules for its event probabilities.
+- **Adaptive scoring rates:** promising, but not validated enough to deploy.
 
 **How a future fixture gets its features.** `src/predict.py` reuses the existing feature code instead of re-implementing it:
 1. It adds the fixture as one row with no score to the matches completed strictly before its date.
@@ -406,12 +434,20 @@ Because every feature is looked up from an earlier date only, the fixture never 
 - **No network calls:** the app has no external APIs.
 - **Date limits:** dates outside the supported seasons, or after the end of the current season (when next season's clubs aren't known), produce a clear error message.
 - **Latest data date:** the app always shows the date of the latest completed match in the data. Matches played after it aren't reflected in the predictions.
+- **No experimental models:** Elo features, the Poisson goals model, the direct and recalibrated event models and the adaptive scoring rates are research results only; none feeds the app's predictions.
+
+`tests/test_app.py` checks the app itself with Streamlit's `AppTest`:
+- the three tabs and their order;
+- that missing research files produce explanations, not errors, while predictions still render;
+- the stale-data and distant-fixture warnings, and their thresholds;
+- the training-season warning in historical demo mode;
+- that the research summaries match the saved results, including the fallback when the adaptive-rate results are missing.
 
 These are statistical estimates, not guarantees or betting recommendations.
 
 ## Goals, Over/Under and BTTS analysis
 
-The app's **Goals & BTTS Analysis** section, beneath the match-outcome predictions, describes how many goals each club's own recent Serie A matches produced. `src/goal_stats.py` computes the statistics; the 1X2 models, features and predictions are unchanged.
+The app's **Goals & BTTS history** tab, separate from the match-outcome predictions, describes how many goals each club's own recent Serie A matches produced. `src/goal_stats.py` computes the statistics; the 1X2 models, features and predictions are unchanged.
 
 **For each club:**
 - **Goals:** scored, conceded and total (both clubs) per match.
@@ -751,4 +787,5 @@ The market-average Over 2.5 odds score 0.6786 on the same fixtures (context only
 - [x] Poisson goals prediction and walk-forward evaluation
 - [x] Direct Over/Under and BTTS prediction experiment
 - [x] Adaptive scoring rates experiment
+- [x] Streamlit app polish and research transparency
 - [ ] Final documentation and presentation

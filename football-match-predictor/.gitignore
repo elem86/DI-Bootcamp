@@ -59,5 +59,15 @@ outputs/goals/*
 # Direct Over/Under and BTTS experiment results (python -m src.event_backtest)
 outputs/events/*
 !outputs/events/.gitkeep
+
+# Adaptive scoring-rate experiment results (python -m src.scoring_drift_backtest)
 outputs/scoring_drift/*
 !outputs/scoring_drift/.gitkeep
+
+# Saved models anywhere else in the project (they are rebuilt by python -m src.train)
+*.joblib
+
+# Secrets and local settings: the project needs none, so none should be committed
+.env
+.env.*
+.streamlit/secrets.toml

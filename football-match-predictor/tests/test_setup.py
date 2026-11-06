@@ -13,9 +13,11 @@ REQUIRED_PACKAGES = [
     "requests",
     "sklearn",
     "xgboost",
+    "joblib",
     "matplotlib",
-    "seaborn",
     "openpyxl",
+    "streamlit",
+    "altair",
 ]
 
 

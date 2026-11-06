@@ -1,22 +1,26 @@
+# Minimum versions. For the exact versions the published results were produced
+# and tested with, install requirements-lock.txt instead.
+
 # Core data handling
 pandas>=2.2
 numpy>=1.26
 scipy>=1.11
 requests>=2.31
 
-# Modelling
+# Modelling (joblib saves and loads the trained models)
 scikit-learn>=1.5
 xgboost>=2.1
+joblib>=1.3
 
-# Visualisation
+# Visualisation (notebooks and figures)
 matplotlib>=3.8
-seaborn>=0.13
 
 # Excel export
 openpyxl>=3.1
 
 # Interactive prediction app (app.py); tested with Streamlit 1.66
 streamlit>=1.66
+altair>=5.0
 
 # Notebooks
 jupyter>=1.0

@@ -1,0 +1,67 @@
+# Tests for football-match-predictor/ (Serie A Match Predictor).
+#
+# Runs on a fresh checkout, which has no downloaded data, trained models or
+# experiment results (all git-ignored). Tests that need them skip themselves,
+# and the job never downloads data, trains models or runs backtests: it checks
+# the code, the documentation and that the app starts.
+name: football-match-predictor
+
+on:
+  push:
+    paths:
+      - "football-match-predictor/**"
+      - ".github/workflows/football-match-predictor.yml"
+  pull_request:
+    paths:
+      - "football-match-predictor/**"
+      - ".github/workflows/football-match-predictor.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: football-match-predictor
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      MPLBACKEND: Agg
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: football-match-predictor/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run tests (data-dependent tests skip without generated files)
+        run: python -m pytest -q -rs
+
+      - name: Check that the app starts
+        run: |
+          streamlit run app.py --server.headless true --server.port 8501 > streamlit.log 2>&1 &
+          pid=$!
+          for attempt in $(seq 1 30); do
+            if curl --silent --fail http://localhost:8501/_stcore/health; then
+              echo " - app is up"
+              kill "$pid"
+              exit 0
+            fi
+            sleep 2
+          done
+          cat streamlit.log
+          exit 1

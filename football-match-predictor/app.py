@@ -118,8 +118,10 @@ st.caption("Home win, draw and away win probabilities from three machine-learnin
 try:
     matches = load_data()
 except FileNotFoundError as error:
-    st.error(f"{error}\n\nRun `python -m src.data_loader` and `python -m src.preprocessing` first (see the README).",
-             title="Match data not found")
+    st.error(f"{error}\n\nA fresh clone contains no data or models. From the project folder, run these four "
+             "commands once, then restart the app (see *Getting started* in the README):\n\n"
+             "```\npython -m src.data_loader\npython -m src.preprocessing\npython -m src.feature_engineering\n"
+             "python -m src.train\n```", title="Match data not found")
     st.stop()
 
 try:

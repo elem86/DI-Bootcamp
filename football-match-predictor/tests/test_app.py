@@ -129,6 +129,53 @@ def all_text(at) -> str:
     return " ".join(parts)
 
 
+def clear_app_caches():
+    """Forget data and models cached by earlier app runs in this test process."""
+    import streamlit as st
+
+    st.cache_data.clear()
+    st.cache_resource.clear()
+
+
+def test_app_explains_missing_match_data(monkeypatch):
+    """A fresh clone has no data: the app must say how to create it instead of failing (runs without data)."""
+    import src.preprocessing
+
+    def missing(*args, **kwargs):
+        raise FileNotFoundError("data/processed/matches.csv not found.")
+
+    monkeypatch.setattr(src.preprocessing, "load_matches", missing)
+    clear_app_caches()
+    try:
+        at = app().run()
+    finally:
+        clear_app_caches()
+    assert not at.exception
+    errors = [e for e in at.error if e.proto.title == "Match data not found"]
+    assert len(errors) == 1
+    assert "python -m src.data_loader" in errors[0].value and "python -m src.preprocessing" in errors[0].value
+    assert not at.tabs  # nothing else is rendered
+
+
+@pytest.mark.skipif(not (PROCESSED_DATA_DIR / "matches.csv").exists(), reason="processed data not generated")
+def test_app_explains_missing_models(monkeypatch):
+    import src.predict
+
+    def missing(*args, **kwargs):
+        raise src.predict.ModelFilesMissing("logistic_regression.joblib was not found. Run `python -m src.train`.")
+
+    monkeypatch.setattr(src.predict, "load_saved_models", missing)
+    clear_app_caches()
+    try:
+        at = app().run()
+    finally:
+        clear_app_caches()
+    assert not at.exception
+    errors = [e for e in at.error if e.proto.title == "Saved models not found"]
+    assert len(errors) == 1 and "python -m src.train" in errors[0].value
+    assert not at.tabs
+
+
 @pytest.mark.skipif(not HAS_APP_INPUTS, reason="processed data or saved models not generated")
 def test_app_has_three_sections_in_order():
     at = app().run()

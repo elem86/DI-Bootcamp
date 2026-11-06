@@ -6,9 +6,20 @@ Probabilities for Italian Serie A results (home win, draw or away win) from thre
 
 > **Not betting advice.** These are statistical estimates from past results. The models do not know about injuries, line-ups or transfers. On historical seasons they are less accurate than the bookmaker's odds, and no betting strategy or profit analysis is included.
 
-**Contents:** [Research questions](#research-questions) · [Data](#data) · [The 1X2 models](#the-1x2-models) · [Results](#results) · [Further experiments](#further-experiments) · [The Streamlit app](#the-streamlit-app) · [Getting started](#getting-started-windows) · [Reproducing the research](#reproducing-the-research) · [Testing](#testing-and-continuous-integration) · [Project structure](#project-structure) · [Limitations](#limitations) · [Future work](#future-work)
+## The project in one minute
 
-The full methodology, every decision rule and all detailed results are in **[docs/methodology.md](docs/methodology.md)**.
+Can thirty years of results predict a football match? Partly, and the interesting part is *how far*:
+
+- **The models work:** using only 50 leakage-safe pre-match features, three models beat the "always home win" baseline by about 0.11 log loss in every one of seven seasons replayed as if live.
+- **The algorithm hardly matters:** Logistic Regression, Random Forest and XGBoost give almost identical probabilities (correlation 0.97–0.98).
+- **The bookmaker is better:** first in 6 of 7 seasons, by about 0.02 log loss. Closing that gap would need information the models don't have, such as team news and transfers.
+- **Promising ideas, honestly tested:** Elo ratings, recency weighting and several goals models gave small or unconfirmed gains. Because each had a decision rule written before it ran, none was deployed.
+
+Read the **[project story](docs/project_story.md)** for the full narrative in plain language, or see the **[presentation outline](docs/presentation_outline.md)** (12 slides) and the **[visual guide](docs/visual_guide.md)**.
+
+**Contents:** [In one minute](#the-project-in-one-minute) · [Research questions](#research-questions) · [Data](#data) · [The 1X2 models](#the-1x2-models) · [Results](#results) · [Further experiments](#further-experiments) · [The Streamlit app](#the-streamlit-app) · [Getting started](#getting-started-windows) · [Reproducing the research](#reproducing-the-research) · [Testing](#testing-and-continuous-integration) · [Project structure](#project-structure) · [Limitations](#limitations) · [Future work](#future-work)
+
+The full methodology, every decision rule and all detailed results are in **[docs/methodology.md](docs/methodology.md)**. The README below covers the evidence in brief and everything needed to install, run, test and reproduce the project.
 
 ## Research questions
 
@@ -284,6 +295,9 @@ football-match-predictor/
 │                           # generated results (git-ignored; folders kept with .gitkeep)
 ├── data/raw/, data/processed/   # downloaded and processed data (git-ignored)
 ├── docs/
+│   ├── project_story.md    # the project as a plain-language narrative
+│   ├── presentation_outline.md  # 12-slide storyboard with speaker notes
+│   ├── visual_guide.md     # which figures to use, and diagrams still to make
 │   ├── methodology.md      # full methodology and detailed results
 │   └── screenshots/        # app screenshots used in this README
 ├── .streamlit/config.toml  # app theme and server settings (no secrets)

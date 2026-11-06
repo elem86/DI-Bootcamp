@@ -79,6 +79,17 @@ def test_documentation_links_resolve(document):
             assert fragment in anchors(linked), f"{document.name} links to missing heading {target}"
 
 
+FIGURE_NAME = re.compile(r"(?:outputs/figures|docs/screenshots)/[\w.-]+\.png")
+
+
+def test_documented_figure_files_exist():
+    """Figures and screenshots named in the docs (also outside links, e.g. in the presentation outline) exist."""
+    names = {name for path in DOCUMENTS for name in FIGURE_NAME.findall(path.read_text(encoding="utf-8"))}
+    assert names, "no figure names found in the documentation"
+    missing = sorted(name for name in names if not (PROJECT / name).exists())
+    assert not missing, f"documented figures that do not exist: {missing}"
+
+
 # ---------------------------------------------------------------- dependencies
 
 

@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 PROJECT = Path(__file__).resolve().parents[1]
-DOCUMENTS = [PROJECT / "README.md", *sorted((PROJECT / "docs").glob("*.md"))]
+DOCUMENTS = [PROJECT / "README.md", *sorted((PROJECT / "docs").rglob("*.md"))]
 NOTEBOOKS = sorted((PROJECT / "notebooks").glob("*.ipynb"))
 
 COMMAND = re.compile(r"python -m src\.(\w+)")

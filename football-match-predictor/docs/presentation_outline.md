@@ -2,6 +2,8 @@
 
 A 12-slide storyboard for a 10–15 minute talk (about 13 minutes at the suggested timings). It follows the [project story](project_story.md); the [visual guide](visual_guide.md) explains each chart and what to fix before using it. Every number below comes from the saved results; the full tables are in [methodology.md](methodology.md).
 
+The finished deck is **[presentation/serie_a_match_predictor.pptx](presentation/serie_a_match_predictor.pptx)**. It follows this outline, with a few visuals redrawn in one consistent palette or replaced by native charts; [presentation/README.md](presentation/README.md) lists what each slide shows and where it comes from.
+
 **Ground rules for the slides:** one message per slide, at most three short points, no code, no formulas beyond "lower is better", and no table larger than five rows. Numbers go in the speaker notes when they don't fit on the slide.
 
 | # | Title | Visual | Time |
@@ -142,7 +144,7 @@ A 12-slide storyboard for a 10–15 minute talk (about 13 minutes at the suggest
 **On the slide:**
 - Models: about 0.11 better than the baseline, in every season
 - Bookmaker: better than every model, first in 6 of 7 seasons
-- The gap is information (team news, transfers), not algorithms
+- The gap probably reflects information (team news, transfers), not algorithms
 
 **Visual:** `outputs/figures/33_backtest_pooled_summary.png` (use the log-loss panel only). Backup: `outputs/figures/32_backtest_gap_to_bookmaker.png` for questions about individual seasons.
 
@@ -222,9 +224,9 @@ A 12-slide storyboard for a 10–15 minute talk (about 13 minutes at the suggest
 
 **Visual:** `docs/screenshots/app_research.png` (or `docs/screenshots/app_goals.png` to show the "descriptive history, not a forecast" label).
 
-**Numbers:** stale-data warning after 10 days; 430 automated tests (413 run in a fresh clone without data); the research tab reads the saved result files directly.
+**Numbers:** stale-data warning after 10 days; 436 automated tests (419 run in a fresh clone without data); the research tab reads the saved result files directly.
 
-**Speaker notes:** Give a short live demo or walk through the screenshot. The Match predictions tab shows each model's probabilities and where they disagree. The Goals tab shows each club's record, explicitly labelled as history, not forecasts. The Research tab shows the evidence from this talk, read straight from the saved results, including why Elo and the goals models are *not* used. Mention the safeguards: the latest-data date is always visible; a warning appears when the data is more than 10 days old or the fixture is far ahead; the historical demo mode rebuilds any past match as it looked that morning and warns when that season was used for training. Behind it, 430 automated tests, and a reproducibility check: rebuilding everything from a fresh copy reproduced the published results.
+**Speaker notes:** Give a short live demo or walk through the screenshot. The Match predictions tab shows each model's probabilities and where they disagree. The Goals tab shows each club's record, explicitly labelled as history, not forecasts. The Research tab shows the evidence from this talk, read straight from the saved results, including why Elo and the goals models are *not* used. Mention the safeguards: the latest-data date is always visible; a warning appears when the data is more than 10 days old or the fixture is far ahead; the historical demo mode rebuilds any past match as it looked that morning and warns when that season was used for training. Behind it, 436 automated tests, and a reproducibility check: rebuilding everything from a fresh copy reproduced the published results.
 
 **Transition:** "So, what did thirty years of football teach us?"
 
@@ -236,14 +238,14 @@ A 12-slide storyboard for a 10–15 minute talk (about 13 minutes at the suggest
 
 **On the slide (three columns):**
 - **Worked:** leakage-safe features; models beat the baseline every season; expected goals
-- **Didn't:** beating the bookmaker; predicting draws; goal-event probabilities
+- **Didn't:** beating the bookmaker; picking draws as the most likely outcome; goal-event probabilities
 - **Learned:** information beats algorithms; seasons vary more than models; write the rule before you look
 
 **Visual:** none: a clean three-column text slide. Optionally reuse the log-loss panel of `outputs/figures/33_backtest_pooled_summary.png` as a small reminder.
 
 **Numbers:** about 0.11 better than the baseline; about 0.02 behind the bookmaker; differences between models at most 0.003.
 
-**Speaker notes:** Summarise in three sentences. What worked: a clean, leakage-safe pipeline and models that beat the naive baseline in every season, plus a testing framework that makes the next idea cheap to test and hard to fool ourselves with. What didn't: we did not beat the bookmaker, nobody can predict draws, and none of the goal-event models were good enough to ship. What we learned: the gap is information, not algorithms; one season can make any model look good or bad; and deciding in advance what counts as success protects you from false discoveries. Close with next steps: test the leading candidates (Random Forest with Elo, the adaptive goal frequency) on seasons they have never seen, and add new information such as line-ups. Invite questions.
+**Speaker notes:** Summarise in three sentences. What worked: a clean, leakage-safe pipeline and models that beat the naive baseline in every season, plus a testing framework that makes the next idea cheap to test and hard to fool ourselves with. What didn't: we did not beat the bookmaker, draws are rarely anyone's most likely outcome, and none of the goal-event models were good enough to ship. What we learned: the gap most likely comes from information, not algorithms; one season can make any model look good or bad; and deciding in advance what counts as success protects you from false discoveries. Close with next steps: test the leading candidates (Random Forest with Elo, the adaptive goal frequency) on seasons they have never seen, and add new information such as line-ups. Invite questions.
 
 **Transition:** Questions.
 

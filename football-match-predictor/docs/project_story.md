@@ -107,7 +107,7 @@ Each season is predicted by a model that only knew the seasons before it, and th
 
 | Forecast | Log loss (lower is better) | Accuracy |
 |---|---|---|
-| Always home win (baseline) | 1.092 | 41.2% |
+| Baseline: historical outcome frequencies for every match (its top pick is always a home win) | 1.092 | 41.2% |
 | Logistic Regression | 0.983 | 53.5% |
 | Random Forest | 0.983 | 53.4% |
 | XGBoost | 0.981 | 54.0% |
@@ -137,11 +137,11 @@ The result is the most important finding of the project:
 
 **The bookmaker was better in 6 of 7 seasons**, by 0.021–0.023 log loss over all seven. The 95% intervals (about +0.013 to +0.031) exclude zero, so this is not luck. The bookmaker's lead is about a fifth of the distance the models travelled from the naive baseline.
 
-Why? The models' home-win probabilities correlate with the bookmaker's at about 0.92–0.93, so they recover most of what the market knows about team strength. On the 2025-26 validation season, the biggest disagreements were about **promoted clubs** (the models have no Serie A history for them; the bookmaker knows their squads and transfers), **the last rounds of the season** (motivation and squad rotation) and **big matches**. The models only know results. The bookmaker also knows about injuries, line-ups, transfers and where the money is going. Interestingly, the bookmaker's probabilities are no bolder than the models': it simply puts the confidence on the right matches more often.
+Why? The models' home-win probabilities correlate with the bookmaker's at about 0.92–0.93, so they recover most of what the market knows about team strength. On the 2025-26 validation season, the biggest disagreements were about **promoted clubs** (the models have no Serie A history for them; the bookmaker knows their squads and transfers), **the last rounds of the season** (motivation and squad rotation) and **big matches**. The models only know results. The bookmaker can also take injuries, line-ups, transfers and the betting market into account, which is the most likely explanation for its lead, although this project cannot prove it. Interestingly, the bookmaker's probabilities are no bolder than the models': it simply puts the confidence on the right matches more often.
 
 What about the 2026-27 test, where the models scored slightly better than the bookmaker (0.882 against 0.898)? With only 100 matches the intervals are far too wide to separate any of the forecasts. It is **not** evidence that the models beat the market, and we don't present it that way.
 
-> **The lesson:** with these features, the choice of algorithm hardly matters. Closing the gap would need *new information*, not a cleverer model.
+> **The lesson:** with these features, the choice of algorithm hardly matters. Closing the gap would most likely need *new information*, not a cleverer model.
 
 ## 7. Do Elo ratings add anything?
 
@@ -217,7 +217,7 @@ The findings come together in a Streamlit app with three tabs that keep three ki
 
 ![Research & methodology tab](screenshots/app_research.png)
 
-The app is honest about its limits. It shows the date of the latest match in the data and warns when that is more than 10 days old, or when the chosen fixture is far beyond it. Its historical demo mode rebuilds any past match "as it looked that morning", and warns when that season was part of the training data. It never retrains anything, and it labels a simple average of the three models as unvalidated. Behind it, 430 automated tests check everything from leakage to the app's layout.
+The app is honest about its limits. It shows the date of the latest match in the data and warns when that is more than 10 days old, or when the chosen fixture is far beyond it. Its historical demo mode rebuilds any past match "as it looked that morning", and warns when that season was part of the training data. It never retrains anything, and it labels a simple average of the three models as unvalidated. Behind it, 436 automated tests check everything from leakage to the app's layout.
 
 ## 12. Conclusions
 
@@ -231,13 +231,13 @@ The app is honest about its limits. It shows the date of the latest match in the
 ### What didn't
 
 - **Beating the bookmaker.** The market was better in 6 of 7 seasons, by a margin that is not luck.
-- **Predicting draws.** Neither the models nor the bookmaker can single out likely draws.
+- **Identifying draws.** A draw is rarely the single most likely outcome for any forecast, the bookmaker's included, so draws are hard to identify in advance.
 - **Elo and recency weighting.** Small gains, not statistically confirmed.
 - **Over/Under and BTTS probabilities.** No method met its readiness rule; the adaptive rates came closest.
 
 ### What we learned
 
-1. **Information beats algorithms.** Three very different models gave almost identical probabilities. The gap to the bookmaker is about information (team news, transfers, line-ups), not modelling technique.
+1. **Information beats algorithms.** Three very different models gave almost identical probabilities. The gap to the bookmaker most likely comes from information (team news, transfers, line-ups), not modelling technique.
 2. **Accuracy is a misleading score for forecasts.** On the test season the bookmaker tied for the best accuracy but had the worst log loss of the four forecasts. Probabilities need probability scores.
 3. **Seasons vary more than models.** A model can look brilliant or poor depending on the season it is tested on, which is why one season is never enough.
 4. **The game drifts.** Home advantage halved over thirty years and scoring levels jump between seasons. Any football model needs to be evaluated, and probably trained, with time in mind.

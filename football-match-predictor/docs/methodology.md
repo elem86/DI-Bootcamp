@@ -213,7 +213,7 @@ Paired bootstrap of the difference in log loss (10,000 resamples of the matches,
 - **Test:** the models score slightly better, but 100 matches cannot separate any of the forecasts.
 - **Accuracy is not probability quality:** on test, the bookmaker ties for the best accuracy yet has the worst log loss of the four.
 - **Calibration:** the models are reasonably calibrated for home win, draw and away win. They are slightly over-confident about strong home favourites. Their largest misses are season-wide and shared with the bookmaker: fewer home wins than usual in 2025-26, and fewer draws so far in 2026-27.
-- **Spread:** all four forecasts spread their probabilities almost equally. The bookmaker's edge comes from ranking matches better (team news, transfers, promoted teams), not from bolder probabilities. Nobody can single out likely draws.
+- **Spread:** all four forecasts spread their probabilities almost equally. The bookmaker's edge comes from ranking matches better (team news, transfers, promoted teams), not from bolder probabilities. A draw is rarely any forecast's most likely outcome.
 - **Limitations:**
   - The bootstrap assumes independent matches and makes six comparisons per season without correction, so it is not a formal significance test.
   - Each split is a single season.

@@ -10,12 +10,12 @@ Probabilities for Italian Serie A results (home win, draw or away win) from thre
 
 Can thirty years of results predict a football match? Partly, and the interesting part is *how far*:
 
-- **The models work:** using only 50 leakage-safe pre-match features, three models beat the "always home win" baseline by about 0.11 log loss in every one of seven seasons replayed as if live.
+- **The models work:** using only 50 leakage-safe pre-match features, three models beat a historical-frequency baseline by about 0.11 log loss in every one of seven seasons replayed as if live.
 - **The algorithm hardly matters:** Logistic Regression, Random Forest and XGBoost give almost identical probabilities (correlation 0.97–0.98).
-- **The bookmaker is better:** first in 6 of 7 seasons, by about 0.02 log loss. Closing that gap would need information the models don't have, such as team news and transfers.
+- **The bookmaker is better:** first in 6 of 7 seasons, by about 0.02 log loss. The gap probably reflects information the models don't have, such as team news and transfers.
 - **Promising ideas, honestly tested:** Elo ratings, recency weighting and several goals models gave small or unconfirmed gains. Because each had a decision rule written before it ran, none was deployed.
 
-Read the **[project story](docs/project_story.md)** for the full narrative in plain language, or see the **[presentation outline](docs/presentation_outline.md)** (12 slides) and the **[visual guide](docs/visual_guide.md)**.
+Read the **[project story](docs/project_story.md)** for the full narrative in plain language, see the **[presentation](docs/presentation/serie_a_match_predictor.pptx)** (12 slides with speaker notes), its **[outline](docs/presentation_outline.md)** and the **[visual guide](docs/visual_guide.md)**.
 
 **Contents:** [In one minute](#the-project-in-one-minute) · [Research questions](#research-questions) · [Data](#data) · [The 1X2 models](#the-1x2-models) · [Results](#results) · [Further experiments](#further-experiments) · [The Streamlit app](#the-streamlit-app) · [Getting started](#getting-started-windows) · [Reproducing the research](#reproducing-the-research) · [Testing](#testing-and-continuous-integration) · [Project structure](#project-structure) · [Limitations](#limitations) · [Future work](#future-work)
 
@@ -25,7 +25,7 @@ The full methodology, every decision rule and all detailed results are in **[doc
 
 | Question | Short answer |
 |---|---|
-| Can pre-match team statistics predict 1X2 results better than a naive baseline? | Yes. All three models clearly beat always predicting a home win, on every metric and in every season tested. |
+| Can pre-match team statistics predict 1X2 results better than a naive baseline? | Yes. All three models clearly beat a baseline that gives every match the historical outcome frequencies (its single pick is always a home win), on every metric and in every season tested. |
 | Does a more flexible model (Random Forest, XGBoost) beat Logistic Regression? | No. The three models score within 0.003 log loss of each other, which is within the noise. |
 | How do the models compare with the bookmaker? | Bet365's implied probabilities are better: by about 0.02 log loss in the walk-forward backtest, and first in 6 of 7 seasons. |
 | Should recent seasons count more in training? | No strategy beat equal weighting by more than the uncertainty. |
@@ -93,7 +93,7 @@ One season is a small sample, so the walk-forward backtest gives the steadier co
 | Random Forest | 0.983 | 0.585 | 53.4% | 0 |
 | XGBoost | 0.981 | 0.584 | 54.0% | 0 |
 | Bookmaker (Bet365) | **0.960** | **0.570** | **54.4%** | 6 |
-| Baseline (always home win) | 1.092 | 0.662 | 41.2% | 0 |
+| Baseline (historical frequencies; always picks home) | 1.092 | 0.662 | 41.2% | 0 |
 
 ![Walk-forward backtest: log loss, Brier score, accuracy and macro F1 for every forecast and season](outputs/figures/31_backtest_metrics_by_season.png)
 
@@ -117,7 +117,7 @@ What the results show:
 - **Better than the baseline:** all three models clearly beat it, in every backtest season and on validation and test.
 - **The models are equivalent:** pooled differences are at most 0.003 log loss, and their paired bootstrap intervals include zero. Their home-win probabilities correlate at 0.97–0.98, so the information in the features, not the choice of algorithm, limits accuracy.
 - **The bookmaker is better:** it beats every model by 0.021–0.023 pooled log loss (95% intervals about +0.013 to +0.031) and ranks first in 6 of 7 seasons. On the 100-match test sample the models score slightly better, but the intervals are far too wide to separate any of the forecasts, so this is **not** evidence that the models beat the market.
-- **Draws are almost never the top pick:** Logistic Regression's draw probabilities, for example, stay between about 12% and 40%. The probabilities are reasonably calibrated, but nobody (models or bookmaker) can single out likely draws.
+- **Draws are almost never the top pick:** Logistic Regression's draw probabilities, for example, stay between about 12% and 40%. The probabilities are reasonably calibrated, but a draw is rarely any forecast's single most likely outcome, the bookmaker's included: draws are hard to identify in advance.
 
 Probability calibration, bootstrap intervals and per-season results are in the [methodology](docs/methodology.md#probability-calibration-and-bookmaker-benchmark).
 
@@ -252,7 +252,7 @@ The research tab of the app uses the results of steps 1, 3, 4, 5 and 6, plus `ou
 
 ## Testing and continuous integration
 
-`python -m pytest` runs 430 tests in about 7 minutes with all data and results present. They check, among other things:
+`python -m pytest` runs 436 tests in about 7 minutes with all data and results present. They check, among other things:
 
 - **Leakage:** no feature or statistic ever sees a same-day or later result;
 - **Parity:** features rebuilt for the app match the training data;
@@ -264,7 +264,7 @@ The research tab of the app uses the results of steps 1, 3, 4, 5 and 6, plus `ou
   - every imported package is a declared requirement;
   - no data, model, secret or local path is tracked.
 
-**Without data:** tests that need downloaded data, saved models or experiment results skip themselves with a reason, so the suite still passes in a fresh clone (413 passed, 17 skipped).
+**Without data:** tests that need downloaded data, saved models or experiment results skip themselves with a reason, so the suite still passes in a fresh clone (419 passed, 17 skipped).
 
 **CI:** a GitHub Actions workflow ([`.github/workflows/football-match-predictor.yml`](../.github/workflows/football-match-predictor.yml) in the `DI-Bootcamp` repository root) runs on every push that touches this folder. It installs `requirements.txt` on Python 3.13 (Ubuntu), runs the test suite and checks that the Streamlit app starts. It never downloads data, trains models or runs backtests. GitHub only runs workflows from the repository root, which is why the file sits outside this folder. If the project becomes a standalone repository, move the file to its own `.github/workflows/` folder and remove the monorepo settings described at the top of the file (`paths` filters, `working-directory` and the `cache-dependency-path` prefix).
 
@@ -298,6 +298,7 @@ football-match-predictor/
 │   ├── project_story.md    # the project as a plain-language narrative
 │   ├── presentation_outline.md  # 12-slide storyboard with speaker notes
 │   ├── visual_guide.md     # which figures to use, and diagrams still to make
+│   ├── presentation/       # the PowerPoint, its presentation-ready figures and build scripts
 │   ├── methodology.md      # full methodology and detailed results
 │   └── screenshots/        # app screenshots used in this README
 ├── .streamlit/config.toml  # app theme and server settings (no secrets)
@@ -311,7 +312,7 @@ football-match-predictor/
 - **Only results:** the models know nothing about line-ups, injuries, suspensions, transfers or managers. This is the most likely reason the bookmaker is better.
 - **Small samples:** single seasons (380 matches), and especially the 100-match 2026-27 test, cannot separate forecasts that differ by a few thousandths of log loss.
 - **Retrospective research:** see [How this was developed](#the-1x2-models). The backtest seasons informed several decisions.
-- **Draws:** neither the models nor the bookmaker can identify likely draws.
+- **Draws:** a draw is rarely the most likely outcome for the models or the bookmaker, so draws are hard to identify in advance.
 - **Data freshness:** predictions reflect only matches up to the latest date in the downloaded data, and the app has no official fixture list.
 - **Promoted clubs:** they start without Serie A history (Serie B is not in the data), so many of their features are missing early in a season.
 - **Goals:** the Goals & BTTS tab shows historical frequencies, which are not validated probabilities.

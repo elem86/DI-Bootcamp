@@ -1,0 +1,3 @@
+Explain the purpose of the calculation and visualize the results.
+
+The purpose is to understand and see visually which genre has the most sales, calculated by sum of unique game sales.
